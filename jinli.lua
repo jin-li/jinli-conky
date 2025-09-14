@@ -251,9 +251,6 @@ end
 
 function updateCpu(config)
   local pos = config.pos or {x = 0, y = 0}
-  local gauge_center = {x = pos.x + scale(140), y = pos.y + scale(120)}
-  local leftTextX = pos.x
-  local rightTextX = pos.x + scale(135)
   local freq = conky_parse('${freq_g cpu0}')
   local hwmon = config.hwmon or getCoreHwmon()
   local tempSensor = config.tempSensor or 1
@@ -272,6 +269,21 @@ function updateCpu(config)
   end
 
   local y = pos.y + scale(5) -- start of text
+  local gauge_center = {x = scale(110), y = pos.y + scale(120)}
+  local leftTextX = gauge_center.x + scale(7)
+  local rightTextX = width
+  if config.gaugeLoc == 'right' then
+    gauge_center.x = width - scale(110)
+    leftTextX = pos.x
+    rightTextX = gauge_center.x - scale(7)
+  end
+
+  local gauge_from = 180
+  local gauge_to = 360
+  if config.gaugeLoc == 'right' then
+    gauge_from = 0
+    gauge_to = 180
+  end
 
   -- temperature
   write(cr, 'CPU Temperature', {
@@ -289,7 +301,7 @@ function updateCpu(config)
   gauge(cr, tonumber(temperature), {
     pos = gauge_center,
     radius = scale(108), thickness = scale(3),
-    from = 0, to = 180,
+    from = gauge_from, to = gauge_to,
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -315,7 +327,7 @@ function updateCpu(config)
   gauge(cr, tonumber(avgCpu), {
     pos = gauge_center,
     radius = scale(98), thickness = scale(11),
-    from = 2, to = 178,
+    from = gauge_from + scale(2), to = gauge_to - scale(2),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -396,7 +408,7 @@ function updateCpu(config)
         gauge(cr, usage, {
           pos = gauge_center,
           radius = r - rDec * (j-1), thickness = thickness,
-          from = 0, to = 180,
+          from = gauge_from, to = gauge_to,
           background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
           color = settings.colors.gauge,
           alpha = settings.colors.gaugeAlpha,
@@ -411,18 +423,30 @@ function updateCpu(config)
 
   -- average cpu graph
   y = y + scale(55)
+  local graph_x = gauge_center.x + scale(30)
+  local graph_width = width - graph_x
+  local graph_direction = 'right'
+  if config.gaugeLoc == 'right' then
+    graph_x = gauge_center.x - scale(30)
+    graph_width = graph_x
+    graph_direction = 'left'
+  end
   graph(cr, 'cpu', tonumber(avgCpu), {
-    pos = {x = gauge_center.x - scale(30), y = y},
-    direction = 'left', amplitude = 'up',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
-    alpha = 0.9, width = rightTextX, height = scale(40),
+    alpha = 0.9, width = graph_width, height = scale(40),
   })
   y = y + scale(1)
+  local text_align = 'left'
+  if config.gaugeLoc == 'right' then
+    text_align = 'right'
+  end
   write(cr, freq .. ' GHz', {
-    pos = {x = gauge_center.x - scale(30), y = y},
+    pos = {x = graph_x, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
-    align = {'right', 'top'},
+    align = {text_align, 'top'},
   })
 
   -- top
@@ -1038,9 +1062,20 @@ function updateDisks(config)
     sort = config.sort
   end
 
-  local x = pos.x
+  --local x = pos.x
   local radius, y, i = scale(56.5), pos.y + scale(8), 0
-  local gauge_center = {x = width - radius - 3.5, y = pos.y + radius + 3.5}
+  local gauge_center = {x = pos.x + radius + 3.5, y = pos.y + radius + 3.5}
+  local leftTextX = pos.x + radius + scale(13.5)
+  local rightTextX = pos.x + width
+  local gauge_from = 180
+  local gauge_to = 360
+  if config.gaugeLoc == 'right' then
+    gauge_center.x = width - radius - 3.5
+    gauge_from = 0
+    gauge_to = 180
+    leftTextX = pos.x
+    rightTextX = pos.x + width - radius - scale(10)
+  end
   for _,name in pairs(sort) do
     local mount = disks[name]
     i = i + 1
@@ -1048,13 +1083,13 @@ function updateDisks(config)
     local used = conky_parse('${fs_used ' .. mount .. '}'):pad(7, ' ', 'STR_PAD_LEFT')
     local total = conky_parse('${fs_size ' .. mount .. '}'):pad(7, ' ', 'STR_PAD_LEFT')
     write(cr, name, {
-      pos = {x = pos.x, y = y},
+      pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'left'},
     })
     write(cr, used .. ' / ' .. total, {
-      pos = {x = gauge_center.x - scale(10), y = y},
+      pos = {x = rightTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'right'},
@@ -1062,7 +1097,7 @@ function updateDisks(config)
     gauge(cr, tonumber(conky_parse('${fs_used_perc ' .. mount .. '}')), {
         pos = gauge_center,
         radius = radius, thickness = scale(7),
-        from = 0, to = 180,
+        from = gauge_from, to = gauge_to,
         background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
         color = settings.colors.gauge,
         alpha = settings.colors.gaugeAlpha,
@@ -1090,44 +1125,59 @@ function updateDisks(config)
 end
 
   -- graph for disk activity (read + write)
+  local graph_x = gauge_center.x + scale(50)
+  local graph_width = width - graph_x
+  local graph_direction = 'right'
+  local rw_text_x = graph_x
+  if config.gaugeLoc == 'right' then
+    graph_x = gauge_center.x - scale(50)
+    graph_width = graph_x
+    graph_direction = 'left'
+    rw_text_x = pos.x
+  end
   y = y + scale(4)
   local read_str = conky_parse('${diskio_read}')
   local disk_read = parseDiskioValue(read_str)
   write(cr, 'Read:' .. read_str .. '/s', {
-    pos = {x = x, y = y},
+    pos = {x = rw_text_x, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left'},
   })
   y = y + scale(18)
+  
   graph(cr, 'disk', disk_read, {
-    pos = {x = gauge_center.x - scale(50), y = y},
-    direction = 'left', amplitude = 'up',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
-    alpha = 0.9, width = gauge_center.x - scale(50), height = scale(15),
+    alpha = 0.9, width = graph_width, height = scale(15),
     max = 'auto',
   })
   local write_str = conky_parse('${diskio_write}')
   local disk_write = parseDiskioValue(write_str)
   y = y + scale(3)
   graph(cr, 'disk_write', disk_write, {
-    pos = {x = gauge_center.x - scale(50), y = y},
-    direction = 'left', amplitude = 'down',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'down',
     color = settings.colors.gauge,
-    alpha = 0.9, width = gauge_center.x - scale(50), height = scale(15),
+    alpha = 0.9, width = graph_width, height = scale(15),
     max = 'auto',
   })
   y = y + scale(18) + scale(12)
   write(cr, 'Write:' .. write_str .. '/s', {
-    pos = {x = x, y = y},
+    pos = {x = rw_text_x, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left'},
   })
 
   -- icon for hard disk
+  local icon_x = gauge_center.x + scale(10)
+  if config.gaugeLoc == 'right' then
+    icon_x = gauge_center.x - scale(40)
+  end
   write(cr, '\u{f02ca}', {
-    pos = {x = gauge_center.x - scale(40), y = gauge_center.y},
+    pos = {x = icon_x, y = gauge_center.y},
     font = {'Symbols Nerd Font', scale(40)},
     color = settings.colors.default,
     align = {'left', 'top'},

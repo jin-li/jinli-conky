@@ -56,7 +56,7 @@ conky.config = {
   own_window_argb_value = 0,
   own_window_class = 'Conky',
   own_window = true,
-  own_window_type = 'dock', -- for kde use dock and add window rules
+  own_window_type = 'normal', -- for kde use normal or dock and add window rules
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 
@@ -94,6 +94,7 @@ conky.jinli = {
     cpu = {
       hide = false,
       pos = {x = 0, y = scale(175)},
+      gaugeLoc = 'left', -- left, right, none
       top = 7,
       -- hwmon = 0,
       -- tempSensor = 1,
@@ -114,6 +115,7 @@ conky.jinli = {
     disks = {
       hide = false,
       pos = {x = 0, y = scale(742)},
+      gaugeLoc = 'left', -- left, right, none
       -- disks = {Home = '/home', Root = '/'}
       disks = 'auto',
       exclude = {'/var/lib/docker', 'fast.workspace', '/boot/efi'},
