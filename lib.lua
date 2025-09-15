@@ -239,3 +239,10 @@ function tprint (tbl, indent)
     end
   end
 end
+
+function font_exists(font_name)
+  local handle = io.popen("fc-list | grep -i '" .. font_name .. "'")
+  local result = handle:read("*a")
+  handle:close()
+  return result ~= ""
+end

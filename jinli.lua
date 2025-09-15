@@ -8,6 +8,7 @@ conky = {}
 require 'jinli-config'
 local settings, cache = conky.jinli, {}
 local cr, width, height, updates
+local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font')
 
 function conky_main()
   if conky_window==nil or conky_window.width == 0 then return end
@@ -512,9 +513,18 @@ function updateCpu(config)
   end
 
   -- icon for CPU
-  write(cr, '\u{f4bc}', {
-    pos = {x = gauge_center.x - scale(20), y = gauge_center.y - scale(20)},
-    font = {'Symbols Nerd Font', scale(40)},
+  -- if font is not found, fall back to text 'CPU'
+  local text = '\u{f4bc}' -- nf-fa-microchip
+  local font = {settings.icon_font, scale(40)}
+  local icon_y = gauge_center.y - scale(20)
+  if not isIconFontAvailable then
+    text = 'CPU'
+    font = {settings.fonts.significant, scale(20), 1}
+    icon_y = gauge_center.y - scale(17)
+  end
+  write(cr, text, {
+    pos = {x = gauge_center.x - scale(20), y = icon_y},
+    font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
   })
@@ -706,9 +716,18 @@ function updateGpu(config)
   end
 
   -- icon for GPU
-  write(cr, '\u{f08ae}', {
-    pos = {x = gauge_center.x - scale(25), y = gauge_center.y - scale(30)},
-    font = {'Symbols Nerd Font', scale(60)},
+  -- if font is not found, fall back to text 'GPU'
+  local text = '\u{f08ae}' -- nf-fa-video_card
+  local font = {settings.icon_font, scale(60)}
+  local icon_y = gauge_center.y - scale(30)
+  if not isIconFontAvailable then
+    text = 'GPU'
+    font = {settings.fonts.significant, scale(20), 1}
+    icon_y = gauge_center.y - scale(17)
+  end
+  write(cr, text, {
+    pos = {x = gauge_center.x - scale(25), y = icon_y},
+    font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
   })
@@ -720,9 +739,6 @@ function updateMemory(config)
   local memTotal, memUsed, memFree, memShared, memBuffers, memAvailable =
     free[2]:match('(%d+) +(%d+) +(%d+) +(%d+) +(%d+) +(%d+)')
   local swapTotal, swapUsed, swapFree = free[3]:match('(%d+) +(%d+) +(%d+)')
-
-  -- label
-
 
   -- memory
   local gauge_center = {x = pos.x+scale(68), y = pos.y+scale(68)}
@@ -866,9 +882,18 @@ function updateMemory(config)
   end
 
   -- icon for RAM
-  write(cr, '\u{efc5}', {
-    pos = {x = gauge_center.x - scale(20), y = gauge_center.y - scale(20)},
-    font = {'Symbols Nerd Font', scale(40)},
+  -- if font is not found, fall back to text 'RAM'
+  local text = '\u{efc5}' -- nf-fa-memory
+  local font = {settings.icon_font, scale(40)}
+  local icon_y = gauge_center.y - scale(20)
+  if not isIconFontAvailable then
+    text = 'RAM'
+    font = {settings.fonts.significant, scale(20), 1}
+    icon_y = gauge_center.y - scale(17)
+  end
+  write(cr, text, {
+    pos = {x = gauge_center.x - scale(20), y = icon_y},
+    font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
   })
@@ -1004,9 +1029,18 @@ function updateNetwork(config)
   })
 
   -- icon for network f059f or ef09
-  write(cr, '\u{ef09}', {
-    pos = {x = gauge_center.x - scale(20), y = gauge_center.y - scale(20)},
-    font = {'Symbols Nerd Font', scale(40)},
+  -- if font is not found, fall back to text 'NET'
+  local text = '\u{ef09}'
+  local font = {settings.icon_font, scale(40)}
+  local icon_y = gauge_center.y - scale(20)
+  if not isIconFontAvailable then
+    text = 'NET'
+    font = {settings.fonts.significant, scale(20), 1}
+    icon_y = gauge_center.y - scale(15)
+  end
+  write(cr, text, {
+    pos = {x = gauge_center.x - scale(20), y = icon_y},
+    font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
   })
@@ -1176,9 +1210,18 @@ end
   if config.gaugeLoc == 'right' then
     icon_x = gauge_center.x - scale(40)
   end
-  write(cr, '\u{f02ca}', {
-    pos = {x = icon_x, y = gauge_center.y},
-    font = {'Symbols Nerd Font', scale(40)},
+  -- if font is not found, fall back to text 'DISK'
+  local text = '\u{f02ca}'
+  local font = {settings.icon_font, scale(40)}
+  local icon_y = gauge_center.y
+  if not isIconFontAvailable then
+    text = 'DISK'
+    font = {settings.fonts.significant, scale(15), 1}
+    icon_y = gauge_center.y + scale(10)
+  end
+  write(cr, text, {
+    pos = {x = icon_x, y = icon_y},
+    font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
   })

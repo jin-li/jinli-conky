@@ -56,7 +56,7 @@ conky.config = {
   own_window_argb_value = 0,
   own_window_class = 'Conky',
   own_window = true,
-  own_window_type = 'normal', -- for kde use normal or dock and add window rules
+  own_window_type = 'normal', -- for kde use dock and add window rules
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 
@@ -78,6 +78,7 @@ conky.text = [[]]
 
 conky.jinli = {
   scaling = scaling,
+  icon_font = 'Symbols Nerd Font',
   widgets = {
     clock = {
       hide = false,
