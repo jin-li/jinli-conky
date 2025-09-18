@@ -546,12 +546,19 @@ function updateGpu(config)
   gpu_mem_used_gb = round(gpu_mem_used / 1024, 1)
   gpu_mem_total_gb = round(gpu_mem_total / 1024, 1)
 
+  local gauge_from = 180
+  local gauge_to = 400
   local gauge_center = {x = pos.x+scale(83), y = pos.y+scale(83)}
+  if config.gaugeLoc == 'right' then
+    gauge_center.x = pos.x + width - scale(83)
+    gauge_from = -40
+    gauge_to = 180
+  end
   -- GPU Temperature Gauge
   gauge(cr, gpu_temp, {
     pos = gauge_center,
     radius = scale(80), thickness = scale(5),
-    from = 180, to = 400,
+    from = gauge_from, to = gauge_to,
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -563,7 +570,7 @@ function updateGpu(config)
   gauge(cr, gpu_load, {
     pos = gauge_center,
     radius = scale(65), thickness = scale(16),
-    from = 184, to = 396,
+    from = gauge_from + scale(4), to = gauge_to - 4,
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -574,7 +581,7 @@ function updateGpu(config)
   gauge(cr, gpu_power, {
     pos = gauge_center,
     radius = scale(50), thickness = scale(8),
-    from = 180, to = 400,
+    from = gauge_from, to = gauge_to,
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -586,7 +593,7 @@ function updateGpu(config)
   gauge(cr, gpu_fan_speed, {
     pos = gauge_center,
     radius = scale(40), thickness = scale(8),
-    from = 180, to = 400,
+    from = gauge_from, to = gauge_to,
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -596,57 +603,75 @@ function updateGpu(config)
   })
 
   local y = pos.y + scale(15) -- start of text
-  local x = pos.x + scale(145)
+  --local x = pos.x + scale(145)
+  local leftTextX = pos.x + scale(145)
+  local rightTextX = width
+  if config.gaugeLoc == 'right' then
+    leftTextX = pos.x
+    rightTextX = pos.x + width - scale(145)
+  end
   write(cr, 'Temperature', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, gpu_temp .. '°C', {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
   })
-  x = x - scale(10)
+  if config.gaugeLoc == 'right' then
+    rightTextX = rightTextX + scale(10)
+  else
+    leftTextX = leftTextX - scale(10)
+  end
   y = y + scale(12)
   write(cr, 'Average Load', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, gpu_load .. '%', {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
   })
-  x = x - scale(10)
+  if config.gaugeLoc == 'right' then
+    rightTextX = rightTextX + scale(10)
+  else
+    leftTextX = leftTextX - scale(10)
+  end
   y = y + scale(12)
   write(cr, 'Power', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, gpu_power .. 'W', {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
   })
-  x = x - scale(10)
+  if config.gaugeLoc == 'right' then
+    rightTextX = rightTextX + scale(10)
+  else
+    leftTextX = leftTextX - scale(10)
+  end
   y = y + scale(12)
   write(cr, 'Fan Speed', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, gpu_fan_speed .. '%', {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
@@ -654,30 +679,42 @@ function updateGpu(config)
 
   -- Graph for GPU load history (similar to CPU)
   y = y + scale(35)
+  local graph_direction = 'right'
+  local graph_x = leftTextX
+  local graph_width = width - graph_x
+  if config.gaugeLoc == 'right' then
+    graph_direction = 'left'
+    graph_x = rightTextX
+    graph_width = graph_x
+  end
   graph(cr, 'gpu', gpu_load, {
-    pos = {x = x, y = y},
-    direction = 'right', amplitude = 'up',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
-    alpha = 0.9, width = width - x, height = scale(20),
+    alpha = 0.9, width = graph_width, height = scale(20),
   })
   -- Graph for GPU memory usage history (similar to CPU)
   y = y + scale(2)
   graph(cr, 'gpu_mem', gpu_mem_used, {
-    pos = {x = x, y = y},
-    direction = 'right', amplitude = 'down',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'down',
     color = settings.colors.gauge,
-    alpha = 0.9, width = width - x, height = scale(20),
+    alpha = 0.9, width = graph_width, height = scale(20),
     max = config.maxMemory or 16000, -- in MB
   })
   y = y + scale(27)
+  rightTextX = width
+  if config.gaugeLoc == 'right' then
+    rightTextX = gauge_center.x - scale(10)
+  end
   write(cr, gpu_clock .. ' MHz', {
-    pos = {x = pos.x+scale(120), y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, gpu_mem_used_gb .. '/' .. gpu_mem_total_gb .. ' GB ', {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
@@ -701,13 +738,13 @@ function updateGpu(config)
     local exec_name = proc.pname:match('([^/\\]+)$') or proc.pname
     exec_name = exec_name:sub(1, 18)
     write(cr, exec_name:pad(18), {
-      pos = {x = gauge_center.x + scale(10), y = y},
+      pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'left', 'top'},
     })
     write(cr, tostring(proc.mem):pad(7, ' ', 'STR_PAD_LEFT') .. ' MB', {
-      pos = {x = width, y = y},
+      pos = {x = rightTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'right', 'top'},
@@ -740,14 +777,27 @@ function updateMemory(config)
     free[2]:match('(%d+) +(%d+) +(%d+) +(%d+) +(%d+) +(%d+)')
   local swapTotal, swapUsed, swapFree = free[3]:match('(%d+) +(%d+) +(%d+)')
 
+  local gauge_from = 180
+  local gauge_to = 400
+  local gauge_center = {x = pos.x + scale(68), y = pos.y + scale(68)}
+  local leftTextX = gauge_center.x + scale(47)
+  local rightTextX = width
+  if config.gaugeLoc == 'right' then
+    gauge_from = -40
+    gauge_to = 180
+    gauge_center.x = pos.x + width - scale(68)
+    leftTextX = pos.x
+    rightTextX = gauge_center.x - scale(47)
+  end
+
   -- memory
-  local gauge_center = {x = pos.x+scale(68), y = pos.y+scale(68)}
+  --local gauge_center = {x = pos.x+scale(68), y = pos.y+scale(68)}
   local used = humanReadableBytes(memUsed + memShared, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   local total = humanReadableBytes(memTotal + 0, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   gauge(cr, memUsed + memShared, {
     pos = gauge_center,
     radius = scale(60), thickness = scale(15),
-    from = 184, to = 396,
+    from = gauge_from + scale(4), to = gauge_to - scale(4),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -761,16 +811,16 @@ function updateMemory(config)
     }
   })
 
-  local x = pos.x+scale(115)
+  --local x = pos.x+scale(115)
   local y = pos.y + scale(10)
   write(cr, 'RAM', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, used .. '/' .. total, {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
@@ -780,13 +830,13 @@ function updateMemory(config)
   -- caches
   local buffer = humanReadableBytes(memBuffers + 0, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   write(cr, 'Cache', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, buffer, {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
@@ -796,15 +846,19 @@ function updateMemory(config)
   -- swap
   local used = humanReadableBytes(swapUsed + 0, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   local total = humanReadableBytes(swapTotal + 0, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
-  x = x - scale(10)
+  if config.gaugeLoc == 'right' then
+    rightTextX = rightTextX + scale(10)
+  else
+    leftTextX = leftTextX - scale(10)
+  end
   write(cr, 'Swap', {
-    pos = {x = x, y = y},
+    pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'left', 'top'},
   })
   write(cr, used .. '/' .. total, {
-    pos = {x = width, y = y},
+    pos = {x = rightTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right', 'top'},
@@ -812,7 +866,7 @@ function updateMemory(config)
   gauge(cr, tonumber(swapUsed), {
     pos = gauge_center,
     radius = scale(43), thickness = scale(11),
-    from = 182, to = 398,
+    from = gauge_from + scale(2), to = gauge_to - scale(2),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -823,11 +877,19 @@ function updateMemory(config)
 
   -- graph
   y = y + scale(50)
+  local graph_x = leftTextX
+  local graph_width = width - graph_x
+  local graph_direction = 'right'
+  if config.gaugeLoc == 'right' then
+    graph_x = rightTextX
+    graph_width = graph_x
+    graph_direction = 'left'
+  end
   graph(cr, 'mem', tonumber(memUsed) + tonumber(memShared), {
-    pos = {x = x, y = y},
-    direction = 'right', amplitude = 'up',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
-    alpha = 0.9, width = width - x, height = scale(30),
+    alpha = 0.9, width = graph_width, height = scale(30),
     max = tonumber(memTotal),
   })
 
@@ -864,15 +926,21 @@ function updateMemory(config)
       table.move(topMem, 1, config.top, 1, cache.topMem)
     end
 
+    leftTextX = gauge_center.x + scale(10)
+    rightTextX = width
+    if config.gaugeLoc == 'right' then
+      leftTextX = pos.x
+      rightTextX = gauge_center.x - scale(10)
+    end
     for _, data in pairs(cache.topMem) do
       write(cr, data.key:pad(20, ' '), {
-        pos = { x = gauge_center.x + scale(10), y = y },
+        pos = { x = leftTextX, y = y },
         font = {settings.fonts.default, scale(10)},
         color = settings.colors.default,
         align = {'left', 'top'},
       });
       write(cr, tostring(data.sum):pad(6, ' ', 'STR_PAD_LEFT') .. '%', {
-        pos = { x = width, y = y },
+        pos = { x = rightTextX, y = y },
         font = {settings.fonts.default, scale(10)},
         color = settings.colors.default,
         align = {'right', 'top'},
@@ -885,6 +953,7 @@ function updateMemory(config)
   -- if font is not found, fall back to text 'RAM'
   local text = '\u{efc5}' -- nf-fa-memory
   local font = {settings.icon_font, scale(40)}
+  local icon_x = gauge_center.x - scale(20)
   local icon_y = gauge_center.y - scale(20)
   if not isIconFontAvailable then
     text = 'RAM'
@@ -892,7 +961,7 @@ function updateMemory(config)
     icon_y = gauge_center.y - scale(17)
   end
   write(cr, text, {
-    pos = {x = gauge_center.x - scale(20), y = icon_y},
+    pos = {x = icon_x, y = icon_y},
     font = font,
     color = settings.colors.default,
     align = {'left', 'top'},
@@ -913,12 +982,19 @@ function updateNetwork(config)
   if cache.maxDown == 0 or cache.maxUp == 0 then return end
 
   local gauge_center = {x = pos.x+scale(50), y = pos.y+scale(50)}
+  local gauge_from = 180
+  local gauge_to = 400
+  if config.gaugeLoc == 'right' then
+    gauge_center.x = pos.x + width - scale(50)
+    gauge_from = -40
+    gauge_to = 180
+  end
 
   -- download gauge
   gauge(cr, downspeed, {
     pos = gauge_center,
     radius = scale(45), thickness = scale(10),
-    from = 180, to = 398,
+    from = gauge_from, to = gauge_to - scale(2),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -929,7 +1005,7 @@ function updateNetwork(config)
   gauge(cr, upspeed, {
     pos = gauge_center,
     radius = scale(35), thickness = scale(5),
-    from = 178, to = 399,
+    from = gauge_from - scale(2), to = gauge_to - scale(1),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
@@ -938,18 +1014,24 @@ function updateNetwork(config)
   })
 
   -- info
-  local x = pos.x + scale(90)
+  --local x = pos.x + scale(90)
+  local leftTextX = gauge_center.x + scale(40)
+  local rightTextX = width
+  if config.gaugeLoc == 'right' then
+    leftTextX = pos.x
+    rightTextX = gauge_center.x - scale(40)
+  end
   local y = pos.y + scale(2)
   if config.hideInfo == nil or config.hideInfo == false then
     local localIp = conky_parse('${addr ' .. network .. '}')
     write(cr, 'LAN', {
-      pos = {x = x, y = y},
+      pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'left', 'top'},
     })
     write(cr, localIp:pad(15, ' ', 'STR_PAD_LEFT'), {
-      pos = {x = width, y = y},
+      pos = {x = rightTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'right', 'top'},
@@ -957,13 +1039,13 @@ function updateNetwork(config)
     y = y + scale(12)
     local publicIp = conky_parse('${execi 3600 wget -q -O - checkip.dyndns.org | sed -e \'s/[^[:digit:]\\|.]//g\'}')
     write(cr, 'WAN', {
-      pos = {x = x, y = y},
+      pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'left', 'top'},
     })
     write(cr, publicIp:pad(15, ' ', 'STR_PAD_LEFT'), {
-      pos = {x = width, y = y},
+      pos = {x = rightTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
       align = {'right', 'top'},
@@ -971,26 +1053,39 @@ function updateNetwork(config)
   end
 
   y = y + scale(35)
+  local graph_x = leftTextX
+  local graph_width = width - graph_x
+  local graph_direction = 'right'
+  if config.gaugeLoc == 'right' then
+    graph_x = rightTextX
+    graph_width = graph_x
+    graph_direction = 'left'
+  end
   -- upload
   graph(cr, 'upload', upspeed, {
-    pos = {x = x, y = y},
-    direction = 'right', amplitude = 'up',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
     alpha = 0.9, max = 'auto',
-    width = scale(100), height = scale(12),
+    width = graph_width, height = scale(12),
   })
   -- download
   y = y + scale(3)
   graph(cr, 'download', downspeed, {
-    pos = {x = x, y = y},
-    direction = 'right', amplitude = 'down',
+    pos = {x = graph_x, y = y},
+    direction = graph_direction, amplitude = 'down',
     color = settings.colors.gauge,
     alpha = 0.9, max = 'auto',
-    width = width - x, height = scale(12),
+    width = graph_width, height = scale(12),
   })
 
   -- current speeds / full speeds / total
-  x = gauge_center.x + scale(20)
+  local x = gauge_center.x + scale(20)
+  local upDownTextX = width
+  if config.gaugeLoc == 'right' then
+    x = pos.x + scale(10)
+    upDownTextX = gauge_center.x - scale(10)
+  end
   y = y + scale(38)
   path(cr, {
     pos = {x = x, y = y-scale(7)},
@@ -1004,7 +1099,7 @@ function updateNetwork(config)
   local up = humanReadableBytes(upspeed, 'KiB'):pad(7, ' ', 'STR_PAD_LEFT')
   local upMax = humanReadableBytes(cache.maxUp, 'KiB'):pad(7, ' ', 'STR_PAD_LEFT')
   write(cr, up .. ' / ' .. upMax .. ' ' .. totalUp, {
-    pos = {x = width, y = y},
+    pos = {x = upDownTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right'},
@@ -1022,7 +1117,7 @@ function updateNetwork(config)
   local down = humanReadableBytes(downspeed, 'KiB'):pad(7, ' ', 'STR_PAD_LEFT')
   local downMax = humanReadableBytes(cache.maxDown, 'KiB'):pad(7, ' ', 'STR_PAD_LEFT')
   write(cr, down .. ' / ' .. downMax .. ' ' .. totalDown, {
-    pos = {x = width, y = y},
+    pos = {x = upDownTextX, y = y},
     font = {settings.fonts.default, scale(10)},
     color = settings.colors.default,
     align = {'right'},
@@ -1032,17 +1127,17 @@ function updateNetwork(config)
   -- if font is not found, fall back to text 'NET'
   local text = '\u{ef09}'
   local font = {settings.icon_font, scale(40)}
-  local icon_y = gauge_center.y - scale(20)
+  local icon_x = gauge_center.x - scale(22)
+  local icon_y = gauge_center.y + scale(8)
   if not isIconFontAvailable then
     text = 'NET'
     font = {settings.fonts.significant, scale(20), 1}
-    icon_y = gauge_center.y - scale(15)
   end
   write(cr, text, {
-    pos = {x = gauge_center.x - scale(20), y = icon_y},
+    pos = {x = icon_x, y = icon_y},
     font = font,
     color = settings.colors.default,
-    align = {'left', 'top'},
+    --align = {'left', 'top'},
   })
 end
 

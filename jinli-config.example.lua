@@ -95,7 +95,7 @@ conky.jinli = {
     cpu = {
       hide = false,
       pos = {x = 0, y = scale(175)},
-      gaugeLoc = 'left', -- left, right, none
+      gaugeLoc = 'right', -- left, right
       top = 7,
       -- hwmon = 0,
       -- tempSensor = 1,
@@ -104,6 +104,7 @@ conky.jinli = {
     gpu = {
       hide = false,
       pos = {x = 0, y = scale(420)},
+      gaugeLoc = 'left', -- left, right
       maxPower = 300, -- max power in watts
       maxMemory = 16303, -- max memory in MB
       -- hwmon = 1,
@@ -111,12 +112,13 @@ conky.jinli = {
     memory = {
       hide = false,
       pos = {x = 0, y = scale(595)},
+      gaugeLoc = 'right', -- left, right
       top = 3,
     },
     disks = {
       hide = false,
       pos = {x = 0, y = scale(742)},
-      gaugeLoc = 'left', -- left, right, none
+      gaugeLoc = 'left', -- left, right
       -- disks = {Home = '/home', Root = '/'}
       disks = 'auto',
       exclude = {'/var/lib/docker', 'fast.workspace', '/boot/efi'},
@@ -126,6 +128,7 @@ conky.jinli = {
     network = {
       hide = false,
       pos = {x = 0, y = scale(870)},
+      gaugeLoc = 'right', -- left, right
       network = 'auto', -- network name 'eth0'
     },
   },
