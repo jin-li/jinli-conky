@@ -603,7 +603,6 @@ function updateGpu(config)
   })
 
   local y = pos.y + scale(15) -- start of text
-  --local x = pos.x + scale(145)
   local leftTextX = pos.x + scale(145)
   local rightTextX = width
   if config.gaugeLoc == 'right' then
@@ -791,7 +790,6 @@ function updateMemory(config)
   end
 
   -- memory
-  --local gauge_center = {x = pos.x+scale(68), y = pos.y+scale(68)}
   local used = humanReadableBytes(memUsed + memShared, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   local total = humanReadableBytes(memTotal + 0, 'MiB'):pad(7, ' ', 'STR_PAD_LEFT')
   gauge(cr, memUsed + memShared, {
@@ -811,7 +809,6 @@ function updateMemory(config)
     }
   })
 
-  --local x = pos.x+scale(115)
   local y = pos.y + scale(10)
   write(cr, 'RAM', {
     pos = {x = leftTextX, y = y},
@@ -1014,7 +1011,6 @@ function updateNetwork(config)
   })
 
   -- info
-  --local x = pos.x + scale(90)
   local leftTextX = gauge_center.x + scale(40)
   local rightTextX = width
   if config.gaugeLoc == 'right' then
@@ -1191,7 +1187,6 @@ function updateDisks(config)
     sort = config.sort
   end
 
-  --local x = pos.x
   local radius, y, i = scale(56.5), pos.y + scale(8), 0
   local gauge_center = {x = pos.x + radius + 3.5, y = pos.y + radius + 3.5}
   local leftTextX = pos.x + radius + scale(13.5)
