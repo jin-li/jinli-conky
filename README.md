@@ -45,11 +45,11 @@ All configurations are in `jinli-config.lua`. You can change the position of wid
 
 ### Global Configurations
 
-- Above `conky.config` table, you can change the width, height and scaling factor.
+- In `conky.jinli` table, you can change the scaling factor and icon font. The default scaling factor is designed for 1920x1080 screen. For 3840x2160 screen, you can set `scaling = 2.0`.
+
+- In `conky.config` table, you can change the width and height.
 
 - In `conky.config` table, you can change the update interval, location, transparency, gap to screen edge, etc.
-
-- In `conky.jinli` table, you can change the scaling factor and icon font.
 
 ### Widget Configurations
 
