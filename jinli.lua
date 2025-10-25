@@ -523,7 +523,11 @@ function updateCpu(config)
   -- if font is not found, fall back to text 'CPU'
   local text = '\u{f4bc}' -- nf-fa-microchip
   local font = {settings.icon_font, scale(40)}
+  local icon_x = gauge_center.x - scale(20)
   local icon_y = gauge_center.y - scale(20)
+  if config.gaugeLoc == 'right' then
+    icon_x = gauge_center.x + scale(20)
+  end
   if not isIconFontAvailable then
     text = 'CPU'
     font = {settings.fonts.significant, scale(20), 1}
@@ -762,7 +766,11 @@ function updateGpu(config)
   -- if font is not found, fall back to text 'GPU'
   local text = '\u{f08ae}' -- nf-fa-video_card
   local font = {settings.icon_font, scale(60)}
+  local icon_x = gauge_center.x - scale(25)
   local icon_y = gauge_center.y - scale(30)
+  if config.gaugeLoc == 'right' then
+    icon_x = gauge_center.x + scale(25)
+  end
   if not isIconFontAvailable then
     text = 'GPU'
     font = {settings.fonts.significant, scale(20), 1}
@@ -1131,16 +1139,20 @@ function updateNetwork(config)
   local text = '\u{ef09}'
   local font = {settings.icon_font, scale(40)}
   local icon_x = gauge_center.x - scale(22)
-  local icon_y = gauge_center.y + scale(8)
+  local icon_y = gauge_center.y - scale(20)
   if not isIconFontAvailable then
     text = 'NET'
     font = {settings.fonts.significant, scale(20), 1}
+    icon_y = gauge_center.y - scale(15)
+  end
+  if config.gaugeLoc == 'right' then
+    icon_x = gauge_center.x - scale(22)
   end
   write(cr, text, {
     pos = {x = icon_x, y = icon_y},
     font = font,
     color = settings.colors.default,
-    --align = {'left', 'top'},
+    align = {'left', 'top'},
   })
 end
 
