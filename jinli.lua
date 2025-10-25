@@ -2,7 +2,14 @@ package.cpath = package.cpath .. ";/usr/lib/conky/lib?.so"
 require 'lib'
 require 'cairo-tools'
 require 'imlib2'
-require 'cairo_xlib'
+-- cairo works on Ubuntu, cairo_xlib works on Fedora
+local ok, cairo = pcall(require, "cairo_xlib")
+if not ok then
+    cairo = require("cairo")
+end
+
+-- make the cairo functions globally available if needed
+_G.cairo = cairo
 
 conky = {}
 require 'jinli-config'
@@ -12,7 +19,7 @@ local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font
 
 function conky_main()
   if conky_window==nil or conky_window.width == 0 then return end
-  local cs = cairo_xlib_surface_create(
+  local cs = cairo.cairo_xlib_surface_create(
     conky_window.display,
     conky_window.drawable,
     conky_window.visual,
