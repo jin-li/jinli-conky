@@ -19,7 +19,7 @@ local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font
 
 function conky_main()
   if conky_window==nil or conky_window.width == 0 then return end
-  local cs = cairo.cairo_xlib_surface_create(
+  local cs = cairo_xlib_surface_create(
     conky_window.display,
     conky_window.drawable,
     conky_window.visual,
