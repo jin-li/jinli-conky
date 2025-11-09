@@ -103,7 +103,7 @@ conky.jinli = {
     },
     gpu = {
       hide = false,
-      pos = {x = 0, y = scale(420)},
+      pos = {x = 0, y = scale(410)},
       gaugeLoc = 'left', -- left, right
       maxPower = 300, -- max power in watts
       maxMemory = 16303, -- max memory in MB
@@ -111,25 +111,26 @@ conky.jinli = {
     },
     memory = {
       hide = false,
-      pos = {x = 0, y = scale(595)},
+      pos = {x = 0, y = scale(585)},
       gaugeLoc = 'right', -- left, right
       top = 3,
     },
+    network = {
+      hide = false,
+      pos = {x = 0, y = scale(740)},
+      gaugeLoc = 'left', -- left, right
+      network = 'auto', -- network name 'eth0'
+      showIpv6 = true,
+    },
     disks = {
       hide = false,
-      pos = {x = 0, y = scale(742)},
-      gaugeLoc = 'left', -- left, right
+      pos = {x = 0, y = scale(865)},
+      gaugeLoc = 'right', -- left, right
       -- disks = {Home = '/home', Root = '/'}
       disks = 'auto',
       exclude = {'/var/lib/docker', 'fast.workspace', '/boot/efi'},
       include = {NAS = '/media/nas/media'}
       -- sort = {NAS, Home, Root}
-    },
-    network = {
-      hide = false,
-      pos = {x = 0, y = scale(870)},
-      gaugeLoc = 'right', -- left, right
-      network = 'auto', -- network name 'eth0'
     },
   },
   fonts = {

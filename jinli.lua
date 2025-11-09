@@ -993,11 +993,11 @@ function updateNetwork(config)
   if cache.maxUp == nil or cache.maxUp < upspeed then cache.maxUp = upspeed end
   if cache.maxDown == 0 or cache.maxUp == 0 then return end
 
-  local gauge_center = {x = pos.x+scale(50), y = pos.y+scale(50)}
+  local gauge_center = {x = pos.x+scale(60), y = pos.y+scale(50)}
   local gauge_from = 180
   local gauge_to = 400
   if config.gaugeLoc == 'right' then
-    gauge_center.x = pos.x + width - scale(50)
+    gauge_center.x = pos.x + width - scale(60)
     gauge_from = -40
     gauge_to = 180
   end
@@ -1005,18 +1005,18 @@ function updateNetwork(config)
   -- download gauge
   gauge(cr, downspeed, {
     pos = gauge_center,
-    radius = scale(45), thickness = scale(10),
+    radius = scale(55), thickness = scale(10),
     from = gauge_from, to = gauge_to - scale(2),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
     alpha = settings.colors.gaugeAlpha,
-    max = cache.maxUp,
-    warn = {from = cache.maxUp * .50, color = settings.colors.gaugeInfo},
+    max = cache.maxDown,
+    warn = {from = cache.maxDown * .50, color = settings.colors.gaugeInfo},
   })
   -- upload gauge
   gauge(cr, upspeed, {
     pos = gauge_center,
-    radius = scale(35), thickness = scale(5),
+    radius = scale(45), thickness = scale(7),
     from = gauge_from - scale(2), to = gauge_to - scale(1),
     background = { color = settings.colors.gaugeBg, alpha = settings.colors.gaugeBgAlpha },
     color = settings.colors.gauge,
@@ -1032,10 +1032,10 @@ function updateNetwork(config)
     leftTextX = pos.x
     rightTextX = gauge_center.x - scale(40)
   end
-  local y = pos.y + scale(2)
+  local y = pos.y
   if config.hideInfo == nil or config.hideInfo == false then
     local localIp = conky_parse('${addr ' .. network .. '}')
-    write(cr, 'LAN', {
+    write(cr, 'LAN v4', {
       pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
@@ -1049,7 +1049,7 @@ function updateNetwork(config)
     })
     y = y + scale(12)
     local publicIp = conky_parse('${execi 3600 wget -q -O - checkip.dyndns.org | sed -e \'s/[^[:digit:]\\|.]//g\'}')
-    write(cr, 'WAN', {
+    write(cr, 'WAN v4', {
       pos = {x = leftTextX, y = y},
       font = {settings.fonts.default, scale(10)},
       color = settings.colors.default,
@@ -1072,13 +1072,18 @@ function updateNetwork(config)
     graph_width = graph_x
     graph_direction = 'left'
   end
+  local gauge_height = scale(12)
+  if config.showIpv6 == false then
+    gauge_height = scale(18)
+    y = y + scale(6)
+  end
   -- upload
   graph(cr, 'upload', upspeed, {
     pos = {x = graph_x, y = y},
     direction = graph_direction, amplitude = 'up',
     color = settings.colors.gauge,
     alpha = 0.9, max = 'auto',
-    width = graph_width, height = scale(12),
+    width = graph_width, height = gauge_height,
   })
   -- download
   y = y + scale(3)
@@ -1087,17 +1092,39 @@ function updateNetwork(config)
     direction = graph_direction, amplitude = 'down',
     color = settings.colors.gauge,
     alpha = 0.9, max = 'auto',
-    width = graph_width, height = scale(12),
+    width = graph_width, height = gauge_height,
   })
 
-  -- current speeds / full speeds / total
   local x = gauge_center.x + scale(20)
+  if config.showIpv6 == true then
+    y = y + scale(34)
+    local publicIpv6 = conky_parse('${execi 3600 wget -q -O - https://ifconfig.co/ip}')
+    if config.gaugeLoc == 'right' then
+      write(cr, publicIpv6:pad(15, ' ', 'STR_PAD_LEFT'), {
+        pos = {x = pos.x, y = y},
+        font = {settings.fonts.default, scale(10)},
+        color = settings.colors.default,
+        align = {'left'},
+      })
+    else
+      write(cr, publicIpv6:pad(15, ' ', 'STR_PAD_LEFT'), {
+        pos = {x = rightTextX, y = y},
+        font = {settings.fonts.default, scale(10)},
+        color = settings.colors.default,
+        align = {'right'},
+      })
+    end
+    y = y + scale(2)
+  else
+    y = y + scale(30)
+  end
+  -- current speeds / full speeds / total
+  y = y + scale(12)
   local upDownTextX = width
   if config.gaugeLoc == 'right' then
     x = pos.x + scale(10)
     upDownTextX = gauge_center.x - scale(10)
   end
-  y = y + scale(38)
   path(cr, {
     pos = {x = x, y = y-scale(7)},
     points = {
