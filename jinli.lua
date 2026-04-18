@@ -499,7 +499,7 @@ function updateCpu(config)
   end
 
   -- average cpu graph
-  y = y + scale(55)
+  y = gauge_center.y + scale(12)
   local graph_x = gauge_center.x + scale(30)
   local graph_width = width - graph_x
   local graph_direction = 'right'
