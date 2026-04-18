@@ -16,6 +16,44 @@ require 'jinli-config'
 local settings, cache = conky.jinli, {}
 local cr, width, height, updates
 local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font')
+local default_widget_order = {'clock', 'system', 'cpu', 'gpu', 'memory', 'network', 'disks'}
+
+function getWidgetPos(config, fallback)
+  if config and config._pos then
+    return config._pos
+  end
+  if config and config.pos then
+    return config.pos
+  end
+  return fallback
+end
+
+function getDynamicWidgetLayout()
+  local layout = {}
+  local widgets = settings.widgets or {}
+  local widgetOrder = settings.show_widgets
+  if type(widgetOrder) ~= 'table' or #widgetOrder == 0 then
+    widgetOrder = default_widget_order
+  end
+
+  local startPos = settings.pos or {x = 0, y = 0}
+  local x = startPos.x or 0
+  local y = startPos.y or 0
+
+  for _, widgetName in ipairs(widgetOrder) do
+    local config = widgets[widgetName]
+    if config ~= nil and config.hide ~= true then
+      table.insert(layout, {
+        widget = widgetName,
+        config = config,
+        pos = {x = x, y = y},
+      })
+      y = y + (config.height or 0)
+    end
+  end
+
+  return layout
+end
 
 function conky_main()
   if conky_window==nil or conky_window.width == 0 then return end
@@ -33,11 +71,29 @@ function conky_main()
 
   updates=tonumber(conky_parse('${updates}'))
 
-  local start = mtime()
-  for widget,config in pairs(settings.widgets) do
-    updateWidget(widget, config)
+  local ok, err = pcall(function()
+    local start = mtime()
+    for _, item in ipairs(getDynamicWidgetLayout()) do
+      item.config._pos = item.pos
+      updateWidget(item.widget, item.config)
+    end
+    -- print(os.date('%c') .. ' updated in ' .. string.format('%.2f seconds', mtime() - start))
+  end)
+
+  -- Cairo objects are allocated every frame; free them explicitly to avoid
+  -- C-side memory growth during long-running conky sessions.
+  if cr ~= nil then
+    cairo_destroy(cr)
+    cr = nil
   end
-  -- print(os.date('%c') .. ' updated in ' .. string.format('%.2f seconds', mtime() - start))
+  if cs ~= nil then
+    cairo_surface_destroy(cs)
+    cs = nil
+  end
+
+  if not ok then
+    print('conky_main error: ' .. tostring(err))
+  end
 end
 
 function updateWidget(widget, config)
@@ -59,8 +115,13 @@ function scale(n)
   return math.floor(n * (settings.scaling or 1));
 end
 
+function trimLine(s)
+  if s == nil then return '' end
+  return s:gsub('[\r\n]+$', '')
+end
+
 function updateClock(config)
-  local pos = config.pos or {x = 0, y = 0}
+  local pos = getWidgetPos(config, {x = 0, y = 0})
   -- time
   write(cr, os.date(config.timeFormat or '%H:%M'), {
     pos = {x = pos.x, y = pos.y - scale(10)},
@@ -87,13 +148,21 @@ function updateClock(config)
 end
 
 function updateSystem(config)
-  local pos = config.pos or {x = 0, y = scale(70)}
+  local pos = getWidgetPos(config, {x = 0, y = scale(70)})
   local leftTextX = pos.x
   local rightTextX = width
   local y = pos.y + scale(2)
 
+  if cache.systemInfo == nil then
+    cache.systemInfo = {
+      os = trimLine(os.capture('lsb_release -irs 2>/dev/null')),
+      cpu = trimLine(os.capture("LC_ALL=C cat /proc/cpuinfo | grep 'model name' | sed -e 's/model name.*: //' | uniq")),
+      gpu = trimLine(os.capture("lspci | grep ' VGA ' | cut -d '[' -f2 | cut -d ']' -f1")),
+    }
+  end
+
   -- os
-  local os = conky_parse('${exec lsb_release -irs}')
+  local os = cache.systemInfo.os
   write(cr, 'OS', {
     pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
@@ -157,7 +226,7 @@ function updateSystem(config)
   y = y + scale(12)
 
   -- cpu
-  local cpu = conky_parse('${execi 10000 cat /proc/cpuinfo | grep \'model name\' | sed -e \'s/model name.*: //\'| uniq}')
+  local cpu = cache.systemInfo.cpu
   write(cr, 'CPU', {
     pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
@@ -173,7 +242,7 @@ function updateSystem(config)
   y = y + scale(12)
 
   -- gpu
-  local gpu = conky_parse('${execi 10000 lspci | grep \' VGA \' | cut -d "[" -f2 | cut -d "]" -f1}')
+  local gpu = cache.systemInfo.gpu
   write(cr, 'GPU', {
     pos = {x = leftTextX, y = y},
     font = {settings.fonts.default, scale(10)},
@@ -258,7 +327,7 @@ function updateSystem(config)
 end
 
 function updateCpu(config)
-  local pos = config.pos or {x = 0, y = 0}
+  local pos = getWidgetPos(config, {x = 0, y = 0})
   local freq = conky_parse('${freq_g cpu0}')
   local hwmon = config.hwmon or getCoreHwmon()
   local tempSensor = config.tempSensor or 1
@@ -461,41 +530,16 @@ function updateCpu(config)
   y = y + scale(12)
   if config.top and config.top > 0 then
     if cache.top == nil or updates % 4 == 0 then
-      -- local topCpu = os.capture('LC_ALL=C ps -eo comm,%cpu --sort=-%cpu --no-headers|head -4'):split('\n')
-      local topCpu = os.capture(
-        'LC_ALL=C top -w 512 -bn 1 -d 1 -o %CPU|grep -A40 "PID USER"|tail -40|' ..
-        'tr -s " "|cut -d " " -f10,13-'
-      ):split('\n')
-      topCpu = table.map(topCpu, function (row)
-        local cpu, cmd = row:match('^([%d.]+) +(.-)$')
-        if cmd == nil then return {cmd = '', cpu = 0} end
-        return {
-          cmd = string.sub(cmd, 1, 20),
-          cpu = cpu,
-        }
-      end)
-      topCpu = table.group(
-        topCpu,
-        function (row) return row.cmd end,
-        {
-          sum = function (sum, row)
-            if sum == nil then
-              return tonumber(row.cpu)
-            end
-            return sum + tonumber(row.cpu)
-          end,
-        }
-      )
-
-      topCpu = table.values(table.filter(topCpu, function (row)
-        return row.sum
-      end))
-      table.sort(topCpu, function (row1, row2)
-        return row1.sum > row2.sum
-      end)
-
-      cache.top = {}
-      table.move(topCpu, 1, config.top, 1, cache.top)
+      -- Use conky's built-in async top sampling (non-blocking, sampled in C)
+      local topCpu = {}
+      for i = 1, config.top do
+        local name = conky_parse('${top name ' .. i .. '}'):match('^%s*(.-)%s*$')
+        local cpu  = tonumber(conky_parse('${top cpu ' .. i .. '}')) or 0
+        if name ~= '' then
+          table.insert(topCpu, {key = name, sum = cpu})
+        end
+      end
+      cache.top = topCpu
     end
 
     local firstRow = y;
@@ -542,18 +586,32 @@ function updateCpu(config)
 end
 
 function updateGpu(config)
-  local pos = config.pos or {x = 0, y = scale(250)}
-  -- Get GPU stats using nvidia-smi
-  local gpu_query = 'nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,power.draw,memory.used,fan.speed,memory.total,clocks.current.graphics --format=csv,noheader,nounits'
-  local output = os.capture(gpu_query):gsub('\r', ''):gsub('\n', '')
-  local gpu_load, gpu_temp, gpu_power, gpu_mem_used, gpu_fan_speed, gpu_mem_total, gpu_clock = output:match('(%d+), (%d+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+)')
-  gpu_load = tonumber(gpu_load) or 0
-  gpu_temp = tonumber(gpu_temp) or 0
-  gpu_power = tonumber(gpu_power) or 0
-  gpu_mem_used = tonumber(gpu_mem_used) or 0
-  gpu_fan_speed = tonumber(gpu_fan_speed) or 0
-  gpu_mem_total = tonumber(gpu_mem_total) or 0
-  gpu_clock = tonumber(gpu_clock) or 0
+  local pos = getWidgetPos(config, {x = 0, y = scale(250)})
+  local gpuRefresh = config.gpuRefreshEvery or 6
+  if cache.gpuData == nil or updates % gpuRefresh == 1 then
+    -- Get GPU stats using nvidia-smi; gated by update count so it never fires
+    -- on the same frame as the clock/second boundary (updates % 6 == 0 is offset by 1).
+    local gpu_query = 'nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,power.draw,memory.used,fan.speed,memory.total,clocks.current.graphics --format=csv,noheader,nounits'
+    local output = os.capture(gpu_query):gsub('\r', ''):gsub('\n', '')
+    local gpu_load, gpu_temp, gpu_power, gpu_mem_used, gpu_fan_speed, gpu_mem_total, gpu_clock = output:match('(%d+), (%d+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+)')
+    cache.gpuData = {
+      load = tonumber(gpu_load) or 0,
+      temp = tonumber(gpu_temp) or 0,
+      power = tonumber(gpu_power) or 0,
+      mem_used = tonumber(gpu_mem_used) or 0,
+      fan_speed = tonumber(gpu_fan_speed) or 0,
+      mem_total = tonumber(gpu_mem_total) or 0,
+      clock = tonumber(gpu_clock) or 0,
+    }
+  end
+
+  local gpu_load = cache.gpuData.load
+  local gpu_temp = cache.gpuData.temp
+  local gpu_power = cache.gpuData.power
+  local gpu_mem_used = cache.gpuData.mem_used
+  local gpu_fan_speed = cache.gpuData.fan_speed
+  local gpu_mem_total = cache.gpuData.mem_total
+  local gpu_clock = cache.gpuData.clock
   gpu_mem_used_gb = round(gpu_mem_used / 1024, 1)
   gpu_mem_total_gb = round(gpu_mem_total / 1024, 1)
 
@@ -731,16 +789,23 @@ function updateGpu(config)
   })
 
   -- Top 3 GPU processes by memory usage
-  local gpu_top_query = 'nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader,nounits'
-  local gpu_top_output = os.capture(gpu_top_query)
-  local gpu_top = {}
-  for line in gpu_top_output:gmatch('[^\n]+') do
-    local pid, pname, mem = line:match('(%d+), ([^,]+), ([%d.]+)')
-    if pid and pname and mem then
-      table.insert(gpu_top, {pid=pid, pname=pname, mem=tonumber(mem)})
+  local gpuProcRefresh = config.processRefreshEvery or 8
+  if cache.gpuTop == nil or updates % gpuProcRefresh == 3 then
+    local gpu_top_query = 'nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader,nounits'
+    local gpu_top_output = os.capture(gpu_top_query)
+    local gpu_top = {}
+    for line in gpu_top_output:gmatch('[^\n]+') do
+      local pid, pname, mem = line:match('(%d+), ([^,]+), ([%d.]+)')
+      if pid and pname and mem then
+        table.insert(gpu_top, {pid=pid, pname=pname, mem=tonumber(mem)})
+      end
     end
+    table.sort(gpu_top, function(a, b) return a.mem > b.mem end)
+    cache.gpuTop = {
+      data = gpu_top,
+    }
   end
-  table.sort(gpu_top, function(a, b) return a.mem > b.mem end)
+  local gpu_top = cache.gpuTop.data or {}
   y = y + scale(14)
   for i=1,math.min(3,#gpu_top) do
     local proc = gpu_top[i]
@@ -785,8 +850,13 @@ function updateGpu(config)
 end
 
 function updateMemory(config)
-  local pos = config.pos or {x = width-scale(205), y = scale(150)}
-  local free = os.capture('LC_ALL=C free -m'):split('\n')
+  local pos = getWidgetPos(config, {x = width-scale(205), y = scale(150)})
+  if cache.memFree == nil or updates % 2 == 1 then
+    cache.memFree = {
+      lines = os.capture('LC_ALL=C free -m'):split('\n'),
+    }
+  end
+  local free = cache.memFree.lines
   local memTotal, memUsed, memFree, memShared, memBuffers, memAvailable =
     free[2]:match('(%d+) +(%d+) +(%d+) +(%d+) +(%d+) +(%d+)')
   local swapTotal, swapUsed, swapFree = free[3]:match('(%d+) +(%d+) +(%d+)')
@@ -981,7 +1051,7 @@ function updateMemory(config)
 end
 
 function updateNetwork(config)
-  local pos = config.pos or {x = width - scale(210), y = scale(315)}
+  local pos = getWidgetPos(config, {x = width - scale(210), y = scale(315)})
   local network = config.network or getCurrentNetwork()
   if network == 'auto' then
     network = getCurrentNetwork()
@@ -1184,54 +1254,67 @@ function updateNetwork(config)
 end
 
 function updateDisks(config)
-  local pos = config.pos or {x = 0, y = scale(250)}
-  local disks = config.disks or 'auto'
-  if disks == 'auto' then
-    disks = {
-      Root = '/'
-    }
+  local pos = getWidgetPos(config, {x = 0, y = scale(250)})
+  local disks, sort
+  local diskRefresh = config.diskRefreshEvery or 60
 
-    if config.include ~= nil then
-      for name,mount in pairs(config.include) do
-        if os.capture('mount |grep \'' .. mount .. '\''):len() > 0 then
-          disks[name] = mount
-        end
-      end
-    end
+  if cache.disksAuto == nil or updates % diskRefresh == 5 then
+    local discoveredDisks = config.disks or 'auto'
+    if discoveredDisks == 'auto' then
+      discoveredDisks = {
+        Root = '/',
+      }
 
-    local mounts = os.capture('mount |grep -E \'^/dev/\''):split("\n")
-    for _,mount in pairs(mounts) do
-      mount = mount:match('on (/[a-zA-Z0-9 ./_-]*) type')
-      if mount ~= nil and mount ~= '/' then
-        local excluded = false
-        for _,exclude in pairs(config.exclude) do
-          if mount:match(exclude) then
-            excluded = true
-            break
+      if config.include ~= nil then
+        for name,mount in pairs(config.include) do
+          if os.capture('mount |grep \'' .. mount .. '\''):len() > 0 then
+            discoveredDisks[name] = mount
           end
         end
-        if not excluded then
-          disks[mount:gsub('(.*/)(.*)', '%2'):gsub('[./_-]', ' '):titlecase()] = mount
+      end
+
+      local mounts = os.capture('mount |grep -E \'^/dev/\''):split("\n")
+      for _,mount in pairs(mounts) do
+        mount = mount:match('on (/[a-zA-Z0-9 ./_-]*) type')
+        if mount ~= nil and mount ~= '/' then
+          local excluded = false
+          for _,exclude in pairs(config.exclude) do
+            if mount:match(exclude) then
+              excluded = true
+              break
+            end
+          end
+          if not excluded then
+            discoveredDisks[mount:gsub('(.*/)(.*)', '%2'):gsub('[./_-]', ' '):titlecase()] = mount
+          end
         end
       end
     end
+
+    local discoveredSort, i = {}, 0
+    if not config.sort or config.sort == 'size' then
+      local sizes, j = {}, 0
+      for name,mount in pairs(discoveredDisks) do
+        j = j + 1
+        sizes[j] = {tonumber(os.capture('df -P ' .. mount .. '|tail -1|awk \'{print $2}\'')), name}
+      end
+      table.sort(sizes, function (a, b) return a[1] > b[1]; end)
+      for _,size in pairs(sizes) do
+        i = i + 1
+        discoveredSort[i] = size[2]
+      end
+    elseif type(config.sort) == "table" then
+      discoveredSort = config.sort
+    end
+
+    cache.disksAuto = {
+      disks = discoveredDisks,
+      sort = discoveredSort,
+    }
   end
 
-  local sort, i = {}, 0
-  if not config.sort or config.sort == 'size' then
-    local sizes, j = {}, 0
-    for name,mount in pairs(disks) do
-      j = j + 1
-      sizes[j] = {tonumber(os.capture('df -P ' .. mount .. '|tail -1|awk \'{print $2}\'')), name}
-    end
-    table.sort(sizes, function (a, b) return a[1] > b[1]; end)
-    for _,size in pairs(sizes) do
-      i = i + 1
-      sort[i] = size[2]
-    end
-  elseif type(config.sort) == "table" then
-    sort = config.sort
-  end
+  disks = cache.disksAuto.disks
+  sort = cache.disksAuto.sort
 
   local radius, y, i = scale(56.5), pos.y + scale(8), 0
   local gauge_center = {x = pos.x + radius + 3.5, y = pos.y + radius + 3.5}

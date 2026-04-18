@@ -79,10 +79,12 @@ conky.text = [[]]
 conky.jinli = {
   scaling = scaling,
   icon_font = 'Symbols Nerd Font',
+  pos = {x = 0, y = 0},
+  show_widgets = {'clock', 'system', 'cpu', 'gpu', 'memory', 'network', 'disks'},
   widgets = {
     clock = {
       hide = false,
-      pos = {x = 0, y = 0},
+      height = scale(60),
       showDate = true,
       timeFormat = '%H:%M:%S',
       dateFormat = '%A %d %b %Y',
@@ -90,11 +92,11 @@ conky.jinli = {
     },
     system = {
       hide = false,
-      pos = {x = 0, y = scale(60)},
+      height = scale(115),
     },
     cpu = {
       hide = false,
-      pos = {x = 0, y = scale(175)},
+      height = scale(235),
       gaugeLoc = 'right', -- left, right
       top = 7,
       -- hwmon = 0,
@@ -103,7 +105,7 @@ conky.jinli = {
     },
     gpu = {
       hide = false,
-      pos = {x = 0, y = scale(410)},
+      height = scale(175),
       gaugeLoc = 'left', -- left, right
       maxPower = 300, -- max power in watts
       maxMemory = 16303, -- max memory in MB
@@ -111,20 +113,20 @@ conky.jinli = {
     },
     memory = {
       hide = false,
-      pos = {x = 0, y = scale(585)},
+      height = scale(155),
       gaugeLoc = 'right', -- left, right
       top = 3,
     },
     network = {
       hide = false,
-      pos = {x = 0, y = scale(740)},
+      height = scale(125),
       gaugeLoc = 'left', -- left, right
       network = 'auto', -- network name 'eth0'
       showIpv6 = true,
     },
     disks = {
       hide = false,
-      pos = {x = 0, y = scale(865)},
+      height = scale(170),
       gaugeLoc = 'right', -- left, right
       -- disks = {Home = '/home', Root = '/'}
       disks = 'auto',
