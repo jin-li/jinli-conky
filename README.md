@@ -59,6 +59,15 @@ Each widget has its own configuration table in `conky.jinli.widgets`. You can sh
 - `pos`: A table specifying the x and y position of the widget, e.g., `pos = {x = 0, y = scale(100)}`.
 - `gaugeLoc`: Set to `'left'`, `'right'`.
 
+### GPU Widget Notes
+
+The GPU widget now supports both NVIDIA and AMD on Linux.
+
+- `gpuBackend`: `auto` (default), `nvidia`, or `amd`.
+- `amdCard`: `auto` (default) or a specific card such as `card0`, `card1`.
+
+In `auto` mode, it prefers `nvidia-smi` if available, otherwise it falls back to AMD sysfs (`/sys/class/drm/card*/device/...` and `hwmon`).
+
 ## Acknowledgements
 
 - This configuration is adapted from [miracle-conky](https://github.com/tflori/miracle-conky).

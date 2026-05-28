@@ -120,6 +120,119 @@ function trimLine(s)
   return s:gsub('[\r\n]+$', '')
 end
 
+local function commandExists(cmd)
+  return trimLine(os.capture('command -v ' .. cmd .. ' 2>/dev/null')) ~= ''
+end
+
+local function readNumberFromFile(path)
+  local out = trimLine(os.capture('cat ' .. path .. ' 2>/dev/null'))
+  return tonumber(out) or 0
+end
+
+local function detectGpuBackend(config)
+  local backend = (config.gpuBackend or config.vendor or 'auto'):lower()
+  if backend == 'nvidia' or backend == 'amd' then
+    return backend
+  end
+
+  if commandExists('nvidia-smi') then
+    return 'nvidia'
+  end
+
+  local amdCard = trimLine(os.capture("ls -d /sys/class/drm/card[0-9]* 2>/dev/null | while read c; do [ -f \"$c/device/vendor\" ] && [ \"$(cat \"$c/device/vendor\" 2>/dev/null)\" = \"0x1002\" ] && { echo \"$c\"; break; }; done"))
+  if amdCard ~= '' then
+    return 'amd'
+  end
+
+  return 'none'
+end
+
+local function getAmdGpuPaths(config)
+  if cache.gpuAmdPaths ~= nil then
+    return cache.gpuAmdPaths
+  end
+
+  local cardPath = ''
+  local amdCard = config.amdCard or 'auto'
+  if type(amdCard) == 'number' then
+    cardPath = '/sys/class/drm/card' .. tostring(amdCard)
+  elseif type(amdCard) == 'string' and amdCard ~= 'auto' and amdCard ~= '' then
+    if amdCard:match('^card%d+$') then
+      cardPath = '/sys/class/drm/' .. amdCard
+    else
+      cardPath = amdCard
+    end
+  else
+    cardPath = trimLine(os.capture("ls -d /sys/class/drm/card[0-9]* 2>/dev/null | while read c; do [ -f \"$c/device/vendor\" ] && [ \"$(cat \"$c/device/vendor\" 2>/dev/null)\" = \"0x1002\" ] && { echo \"$c\"; break; }; done"))
+  end
+
+  if cardPath == '' then
+    cache.gpuAmdPaths = false
+    return false
+  end
+
+  local hwmonPath = trimLine(os.capture('ls -d ' .. cardPath .. '/device/hwmon/hwmon* 2>/dev/null | head -n1'))
+  cache.gpuAmdPaths = {
+    card = cardPath,
+    hwmon = hwmonPath,
+  }
+  return cache.gpuAmdPaths
+end
+
+local function getAmdGpuData(config)
+  local paths = getAmdGpuPaths(config)
+  if not paths then
+    return {
+      load = 0,
+      temp = 0,
+      power = 0,
+      mem_used = 0,
+      fan_speed = 0,
+      mem_total = 0,
+      clock = 0,
+    }
+  end
+
+  local load = readNumberFromFile(paths.card .. '/device/gpu_busy_percent')
+  local mem_used = readNumberFromFile(paths.card .. '/device/mem_info_vram_used') / (1024 * 1024)
+  local mem_total = readNumberFromFile(paths.card .. '/device/mem_info_vram_total') / (1024 * 1024)
+
+  local temp = 0
+  local power = 0
+  local fan_speed = 0
+  if paths.hwmon ~= '' then
+    temp = readNumberFromFile(paths.hwmon .. '/temp1_input') / 1000
+
+    power = readNumberFromFile(paths.hwmon .. '/power1_average')
+    if power == 0 then
+      power = readNumberFromFile(paths.hwmon .. '/power1_input')
+    end
+    power = power / 1000000
+
+    local pwm = readNumberFromFile(paths.hwmon .. '/pwm1')
+    local pwmMax = readNumberFromFile(paths.hwmon .. '/pwm1_max')
+    if pwm > 0 and pwmMax > 0 then
+      fan_speed = pwm * 100 / pwmMax
+    end
+  end
+
+  local clock = 0
+  local sclkLine = trimLine(os.capture("cat " .. paths.card .. "/device/pp_dpm_sclk 2>/dev/null | grep '\\*' | head -n1"))
+  if sclkLine ~= '' then
+    clock = tonumber(sclkLine:match('(%d+)%s*[mM][hH][zZ]')) or 0
+  end
+
+  return {
+    load = round(load, 1),
+    temp = round(temp, 1),
+    power = round(power, 1),
+    mem_used = round(mem_used, 1),
+    fan_speed = round(fan_speed, 1),
+    mem_total = round(mem_total, 1),
+    clock = round(clock, 0),
+  }
+end
+
 function updateClock(config)
   local pos = getWidgetPos(config, {x = 0, y = 0})
   -- time
@@ -139,12 +252,14 @@ function updateClock(config)
     })
   end
   -- icon for distro
-  write(cr, config.osIcon, {
-    pos = {x = width - scale(50), y = pos.y},
-    font = {'Symbols Nerd Font', scale(50)},
-    color = settings.colors.default,
-    align = {'left', 'top'},
-  })
+  if isIconFontAvailable and config.osIcon then
+    write(cr, config.osIcon, {
+      pos = {x = width - scale(50), y = pos.y},
+      font = {'Symbols Nerd Font', scale(50)},
+      color = settings.colors.default,
+      align = {'left', 'top'},
+    })
+  end
 end
 
 function updateSystem(config)
@@ -588,21 +703,39 @@ end
 function updateGpu(config)
   local pos = getWidgetPos(config, {x = 0, y = scale(250)})
   local gpuRefresh = config.gpuRefreshEvery or 6
+  if cache.gpuBackend == nil then
+    cache.gpuBackend = detectGpuBackend(config)
+  end
+
   if cache.gpuData == nil or updates % gpuRefresh == 1 then
-    -- Get GPU stats using nvidia-smi; gated by update count so it never fires
-    -- on the same frame as the clock/second boundary (updates % 6 == 0 is offset by 1).
-    local gpu_query = 'nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,power.draw,memory.used,fan.speed,memory.total,clocks.current.graphics --format=csv,noheader,nounits'
-    local output = os.capture(gpu_query):gsub('\r', ''):gsub('\n', '')
-    local gpu_load, gpu_temp, gpu_power, gpu_mem_used, gpu_fan_speed, gpu_mem_total, gpu_clock = output:match('(%d+), (%d+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+), ([%d.]+)')
-    cache.gpuData = {
-      load = tonumber(gpu_load) or 0,
-      temp = tonumber(gpu_temp) or 0,
-      power = tonumber(gpu_power) or 0,
-      mem_used = tonumber(gpu_mem_used) or 0,
-      fan_speed = tonumber(gpu_fan_speed) or 0,
-      mem_total = tonumber(gpu_mem_total) or 0,
-      clock = tonumber(gpu_clock) or 0,
-    }
+    if cache.gpuBackend == 'nvidia' then
+      -- Get GPU stats using nvidia-smi; gated by update count so it never fires
+      -- on the same frame as the clock/second boundary (updates % 6 == 0 is offset by 1).
+      local gpu_query = 'nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,power.draw,memory.used,fan.speed,memory.total,clocks.current.graphics --format=csv,noheader,nounits'
+      local output = os.capture(gpu_query):gsub('\r', ''):gsub('\n', '')
+      local gpu_load, gpu_temp, gpu_power, gpu_mem_used, gpu_fan_speed, gpu_mem_total, gpu_clock = output:match('(%d+),%s*(%d+),%s*([%d.]+),%s*([%d.]+),%s*([%d.]+),%s*([%d.]+),%s*([%d.]+)')
+      cache.gpuData = {
+        load = tonumber(gpu_load) or 0,
+        temp = tonumber(gpu_temp) or 0,
+        power = tonumber(gpu_power) or 0,
+        mem_used = tonumber(gpu_mem_used) or 0,
+        fan_speed = tonumber(gpu_fan_speed) or 0,
+        mem_total = tonumber(gpu_mem_total) or 0,
+        clock = tonumber(gpu_clock) or 0,
+      }
+    elseif cache.gpuBackend == 'amd' then
+      cache.gpuData = getAmdGpuData(config)
+    else
+      cache.gpuData = {
+        load = 0,
+        temp = 0,
+        power = 0,
+        mem_used = 0,
+        fan_speed = 0,
+        mem_total = 0,
+        clock = 0,
+      }
+    end
   end
 
   local gpu_load = cache.gpuData.load
@@ -612,8 +745,8 @@ function updateGpu(config)
   local gpu_fan_speed = cache.gpuData.fan_speed
   local gpu_mem_total = cache.gpuData.mem_total
   local gpu_clock = cache.gpuData.clock
-  gpu_mem_used_gb = round(gpu_mem_used / 1024, 1)
-  gpu_mem_total_gb = round(gpu_mem_total / 1024, 1)
+  local gpu_mem_used_gb = round(gpu_mem_used / 1024, 1)
+  local gpu_mem_total_gb = round(gpu_mem_total / 1024, 1)
 
   local gauge_from = 180
   local gauge_to = 400
@@ -791,16 +924,18 @@ function updateGpu(config)
   -- Top 3 GPU processes by memory usage
   local gpuProcRefresh = config.processRefreshEvery or 8
   if cache.gpuTop == nil or updates % gpuProcRefresh == 3 then
-    local gpu_top_query = 'nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader,nounits'
-    local gpu_top_output = os.capture(gpu_top_query)
     local gpu_top = {}
-    for line in gpu_top_output:gmatch('[^\n]+') do
-      local pid, pname, mem = line:match('(%d+), ([^,]+), ([%d.]+)')
-      if pid and pname and mem then
-        table.insert(gpu_top, {pid=pid, pname=pname, mem=tonumber(mem)})
+    if cache.gpuBackend == 'nvidia' then
+      local gpu_top_query = 'nvidia-smi --query-compute-apps=pid,process_name,used_gpu_memory --format=csv,noheader,nounits'
+      local gpu_top_output = os.capture(gpu_top_query)
+      for line in gpu_top_output:gmatch('[^\n]+') do
+        local pid, pname, mem = line:match('(%d+),%s*([^,]+),%s*([%d.]+)')
+        if pid and pname and mem then
+          table.insert(gpu_top, {pid=pid, pname=pname, mem=tonumber(mem)})
+        end
       end
+      table.sort(gpu_top, function(a, b) return a.mem > b.mem end)
     end
-    table.sort(gpu_top, function(a, b) return a.mem > b.mem end)
     cache.gpuTop = {
       data = gpu_top,
     }
