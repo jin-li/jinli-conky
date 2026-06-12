@@ -1,6 +1,12 @@
 require 'cairo'
 require 'lib'
 
+-- Pre-allocate reusable Cairo structs to avoid per-frame C userdata allocation.
+-- Creating cairo_text_extents_t / cairo_font_extents_t on every write() call
+-- leaks memory because Conky's Lua-Cairo binding doesn't GC them reliably.
+local _te = cairo_text_extents_t:create()
+local _fe = cairo_font_extents_t:create()
+
 --[[
 Convert hexadezimal colors to rgba values
 
@@ -59,8 +65,9 @@ function write(cr, text, def)
 
   local x = def.pos.x
   local y = def.pos.y
-  local te = cairo_text_extents_t:create()
-  local fe = cairo_font_extents_t:create()
+  -- Reuse pre-allocated extent structs instead of creating new ones every call.
+  local te = _te
+  local fe = _fe
   cairo_text_extents(cr, text, te)
   cairo_font_extents(cr, fe)
 
@@ -241,14 +248,14 @@ end
 
 function gauge(cr, value, def)
   if def.background then
-    local bgDef = table.clone(def)
+    local bgDef = table.shallowCopy(def)
     bgDef.color = def.background.color
     bgDef.alpha = def.background.alpha
     ring(cr, bgDef)
   end
 
   if def.level2 then
-    local level2Def = table.clone(def)
+    local level2Def = table.shallowCopy(def)
     level2Def.color = def.level2.color
     level2Def.alpha = def.level2.alpha
     local t = def.level2.value / (def.max or 100)
@@ -377,7 +384,7 @@ function bar(cr, value, def)
   def.caps = def.caps or CAIRO_LINE_CAP_ROUND
 
   if def.background then
-    local bgDef = table.clone(def)
+    local bgDef = table.shallowCopy(def)
     bgDef.color = def.background.color
     bgDef.alpha = def.background.alpha
     line(cr, bgDef)
