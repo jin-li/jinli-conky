@@ -69,6 +69,14 @@ function string:titlecase()
     return result
 end
 
+function table.shallowCopy(orig)
+  local copy = {}
+  for k, v in pairs(orig) do
+    copy[k] = v
+  end
+  return copy
+end
+
 function table.clone(orig)
   local orig_type = type(orig)
   local copy
@@ -167,18 +175,30 @@ function interp(s, tab)
   return (s:gsub('($%b{})', function(w) return tab[w:sub(3, -2)] or w end))
 end
 
+local _coreHwmon = nil
 function getCoreHwmon()
+  if _coreHwmon ~= nil then return _coreHwmon end
   local output = os.capture('grep -lE \'k10temp|coretemp\' /sys/class/hwmon/hwmon*/name | xargs -r dirname')
   if output == '' then
-    return 0
+    _coreHwmon = 0
+  else
+    _coreHwmon = tonumber(output:match('/hwmon%d'):sub(-1))
   end
-
-  return tonumber(output:match('/hwmon%d'):sub(-1))
+  return _coreHwmon
 end
 
+local _currentNetwork = nil
+local _currentNetworkFrame = 0
 function getCurrentNetwork()
-  networks = os.capture('ip route|grep -E \'^(0.0.0.0|default)\'|awk \'{print $5}\''):split("\n")
-  return networks[1]
+  -- Refresh every 120 frames (~60s) in case the active interface changes
+  local currentUpdates = tonumber(conky_parse('${updates}')) or 0
+  if _currentNetwork ~= nil and currentUpdates - _currentNetworkFrame < 120 then
+    return _currentNetwork
+  end
+  local networks = os.capture('ip route|grep -E \'^(0.0.0.0|default)\'|awk \'{print $5}\''):split("\n")
+  _currentNetwork = networks[1]
+  _currentNetworkFrame = currentUpdates
+  return _currentNetwork
 end
 
 function isWifi()
@@ -219,8 +239,12 @@ function hasBattery(bat)
   return io.fileExists('/sys/class/power_supply/' .. bat)
 end
 
+local _cpuCount = nil
 function getCpuCount()
-  return tonumber(os.capture('nproc'))
+  if _cpuCount == nil then
+    _cpuCount = tonumber(os.capture('nproc'))
+  end
+  return _cpuCount
 end
 
 function tprint (tbl, indent)
