@@ -43,6 +43,10 @@ Or you can use the original `Symbols Nerd Font` if you prefer, which can be down
 
 All configurations are in `jinli-config.lua`. You can change the position of widgets, colors, fonts, etc.
 
+The runtime normalizes the distribution name used for the OS icon by removing
+optional surrounding single or double quotes. This is needed on systems such
+as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
+
 ### Global Configurations
 
 - In `conky.jinli` table, you can change the scaling factor and icon font. The default scaling factor is designed for 1920x1080 screen. For 3840x2160 screen, you can set `scaling = 2.0`.

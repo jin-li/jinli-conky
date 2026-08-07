@@ -2,33 +2,6 @@ local scaling = 1
 function scale(n)
   return math.floor(n * scaling)
 end
-function getOsIcon() -- this is only tested on fedora
-  --local distro = os.capture('lsb_release -is'):lower():match('^%s*(.-)%s*$')
-  local osName = io.popen('lsb_release -is'):read('*l') or 'linux'
-  local distro = osName:lower():match('^%s*(.-)%s*$')
-  local icon_map = {
-    fedora = '\u{f30a}',
-    ubuntu = '\u{f0548}',
-    deepin = '\u{f321}',
-    archlinux = '\u{f303}',
-    manjaro = '\u{f312}',
-    debian = '\u{e77d}',
-    archcraft = '\u{f345}',
-    mint = '\u{f08ed}',
-    nixos = '\u{f313}',
-    gentoo = '\u{f30d}',
-    elementary = '\u{f309}',
-    endeavour = '\u{f322}',
-    centos = '\u{f304}',
-    pop_os = '\u{f32a}',
-    suse = '\u{ef6d}',
-    kubuntu = '\u{f333}',
-    raspberry = '\u{f315}',
-  }
-  print("Distro detected: " .. distro)
-  local icon = icon_map[distro] or '\u{ebc6}' -- default linux icon
-  return icon
-end
 
 local width, height, dpi = scale(250), scale(1000), 96
 local default, primary, warn, crit = 0xffffff, 0x00bfa5, 0xfbc02d, 0xdd2c00

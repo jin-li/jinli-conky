@@ -11,6 +11,33 @@ end
 -- make the cairo functions globally available if needed
 _G.cairo = cairo
 
+function getOsIcon()
+  local osName = io.popen('lsb_release -is'):read('*l') or 'linux'
+  local distro = osName:lower():match('^%s*(.-)%s*$')
+  distro = distro:gsub('^"(.-)"$', '%1'):gsub("^'(.-)'$", '%1')
+  local icon_map = {
+    fedora = '\u{f30a}',
+    ubuntu = '\u{f0548}',
+    deepin = '\u{f321}',
+    archlinux = '\u{f303}',
+    manjaro = '\u{f312}',
+    debian = '\u{e77d}',
+    archcraft = '\u{f345}',
+    mint = '\u{f08ed}',
+    nixos = '\u{f313}',
+    gentoo = '\u{f30d}',
+    elementary = '\u{f309}',
+    endeavour = '\u{f322}',
+    centos = '\u{f304}',
+    pop_os = '\u{f32a}',
+    suse = '\u{ef6d}',
+    kubuntu = '\u{f333}',
+    raspberry = '\u{f315}',
+  }
+  print("Distro detected: " .. distro)
+  return icon_map[distro] or '\u{ebc6}'
+end
+
 conky = {}
 require 'jinli-config'
 local settings, cache = conky.jinli, {}
