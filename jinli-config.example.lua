@@ -1,9 +1,21 @@
-local scaling = 1
+-- Set to a number for a fixed scale, or use 'auto' to fit the visible
+-- widgets to the detected screen height.
+local scaling = 'auto'
+local configScaling = type(scaling) == 'number' and scaling or 1
 function scale(n)
-  return math.floor(n * scaling)
+  return math.floor(n * configScaling)
 end
 
-local width, height, dpi = scale(250), scale(1000), 96
+local function detectScreenHeight()
+  local pipe = io.popen("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1")
+  local detected = pipe and tonumber(pipe:read('*l')) or nil
+  if pipe then pipe:close() end
+  return detected and detected > 0 and detected or 1000
+end
+
+local width = scale(250)
+local height = scaling == 'auto' and detectScreenHeight() or scale(1000)
+local dpi = 96
 local default, primary, warn, crit = 0xffffff, 0x00bfa5, 0xfbc02d, 0xdd2c00
 
 conky.config = {
@@ -51,6 +63,7 @@ conky.text = [[]]
 
 conky.jinli = {
   scaling = scaling,
+  auto_scaling_bottom_margin = 80,
   icon_font = 'Symbols Nerd Font',
   pos = {x = 0, y = 0},
   show_widgets = {'clock', 'system', 'cpu', 'gpu', 'memory', 'network', 'disks'},

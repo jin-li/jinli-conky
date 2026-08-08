@@ -42,8 +42,10 @@ conky = {}
 require 'jinli-config'
 local settings, cache = conky.jinli, {}
 local cr, width, height, updates
+local effectiveScaling
 local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font')
 local default_widget_order = {'clock', 'system', 'cpu', 'gpu', 'memory', 'network', 'disks'}
+local scaleWidgetHeight
 
 function getWidgetPos(config, fallback)
   if config and config._pos then
@@ -75,11 +77,69 @@ function getDynamicWidgetLayout()
         config = config,
         pos = {x = x, y = y},
       })
-      y = y + (config.height or 0)
+      y = y + (config.height and scaleWidgetHeight(config.height) or 0)
     end
   end
 
   return layout
+end
+
+local function getScreenHeight()
+  -- Conky exposes the X desktop dimensions and this avoids starting a shell
+  -- process on every draw. The command fallbacks help with older Conky builds.
+  local detected = tonumber(conky_parse('${desktop_height}'))
+  if detected and detected > 0 then
+    return detected
+  end
+
+  detected = tonumber(trimLine(os.capture("xrandr --current 2>/dev/null | sed -n 's/.* connected primary .* \\([0-9][0-9]*\\)x\\([0-9][0-9]*\\).*/\\2/p' | head -n 1")))
+  if detected and detected > 0 then
+    return detected
+  end
+
+  return tonumber(trimLine(os.capture("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1")))
+end
+
+local function isAutomaticScaling()
+  return settings.scaling == 'auto'
+end
+
+local function getAutoScaling()
+  if effectiveScaling ~= nil then
+    return effectiveScaling
+  end
+
+  local screenHeight = getScreenHeight()
+  local layoutHeight = settings.pos and settings.pos.y or 0
+  local widgets = settings.widgets or {}
+  local widgetOrder = settings.show_widgets
+  if type(widgetOrder) ~= 'table' or #widgetOrder == 0 then
+    widgetOrder = default_widget_order
+  end
+
+  for _, widgetName in ipairs(widgetOrder) do
+    local config = widgets[widgetName]
+    if config ~= nil and config.hide ~= true then
+      layoutHeight = layoutHeight + (config.height or 0)
+    end
+  end
+
+  local bottomMargin = tonumber(settings.auto_scaling_bottom_margin) or 80
+  local availableHeight = (screenHeight or layoutHeight) - bottomMargin
+  if layoutHeight <= 0 or availableHeight <= 0 then
+    effectiveScaling = 1
+  else
+    effectiveScaling = availableHeight / layoutHeight
+  end
+
+  return effectiveScaling
+end
+
+scaleWidgetHeight = function(n)
+  if isAutomaticScaling() then
+    return scale(n)
+  end
+  return n
 end
 
 function conky_main()
@@ -139,7 +199,11 @@ function updateWidget(widget, config)
 end
 
 function scale(n)
-  return math.floor(n * (settings.scaling or 1));
+  local scaling = settings.scaling
+  if scaling == 'auto' then
+    scaling = getAutoScaling()
+  end
+  return math.floor(n * (tonumber(scaling) or 1));
 end
 
 function trimLine(s)
