@@ -14,13 +14,20 @@ An elegant, pure lua conky configuration.
 
 ## Install
 
-Download or clone this repository. Then run the `start.sh` script:
+Download or clone this repository. Ensure Conky is installed, then run the `start.sh` script:
 
 ```bash
 ./start.sh
 ```
 
-Running above script also generate an autostart desktop entry in current directory, called `conky-start.desktop`. You can copy it to `~/.config/autostart/` to make conky start at login.
+The script creates `jinli-config.lua` from the example when it does not already exist, then starts Conky after a short delay. It also writes `conky-start.desktop` beside `start.sh`. To start it automatically at login:
+
+```bash
+mkdir -p ~/.config/autostart
+cp conky-start.desktop ~/.config/autostart/
+```
+
+The desktop entry uses the repository's absolute path. If you move or rename the checkout, run `./start.sh --no-sleep` once and copy the regenerated entry again.
 
 ## Font
 
@@ -49,7 +56,7 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 ### Global Configurations
 
-- In `conky.jinli`, set `scaling = 'auto'` to calculate the scale from the detected screen height. The calculation respects the visible widget order and heights, and reserves `auto_scaling_bottom_margin` pixels for a dock or taskbar (80 by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
+- At the top of `jinli-config.lua`, set `local scaling = 'auto'` to calculate the scale from the detected screen height. The calculation respects the visible widget order and heights. Set `auto_scaling_bottom_margin` in `conky.jinli` to reserve space for a dock or taskbar (80 pixels by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
 
 - In `conky.config` table, you can change the width and height.
 
