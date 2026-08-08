@@ -56,7 +56,12 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 ### Global Configurations
 
-- At the top of `jinli-config.lua`, set `local scaling = 'auto'` to calculate the scale from the detected screen height. The calculation respects the visible widget order and heights. Set `auto_scaling_bottom_margin` in `conky.jinli` to reserve space for a dock or taskbar (80 pixels by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
+- At the top of `jinli-config.lua`, set `local scaling = 'auto'` to calculate the scale from a detected display height. On KDE Wayland, the theme uses `kscreen-doctor`'s per-output geometry and fractional scale before falling back to XRandR or `xdpyinfo`; install `kscreen-doctor` when using KDE Wayland. By default it uses the primary output. Set `autoScalingOutput` to a specific output name from `kscreen-doctor -o` (for example, `eDP-1`) when Conky belongs on another display. The calculation respects the visible widget order and heights. Set `auto_scaling_bottom_margin` in `conky.jinli` to reserve space for a dock or taskbar (80 pixels by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
+
+  The KDE Wayland path has been tested. The XRandR and `xdpyinfo` fallback paths
+  are intended for X11 and other desktops, but have not yet been tested across
+  all GUI environments. Please report display-detection results on other
+  compositors or desktops.
 
 - In `conky.config` table, you can change the width and height.
 

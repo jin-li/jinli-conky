@@ -58,6 +58,11 @@ function getDynamicWidgetLayout()
 end
 
 local function getScreenHeight()
+  local configuredHeight = tonumber(settings.auto_scaling_screen_height)
+  if configuredHeight and configuredHeight > 0 then
+    return configuredHeight
+  end
+
   -- The result is cached, so run display probes only once per Conky session.
   -- xrandr works with X11/Xwayland; xdpyinfo is a portable fallback.
   local xrandrHeight = trimLine(os.capture("xrandr --current 2>/dev/null | sed -n 's/.* connected primary .* \\([0-9][0-9]*\\)x\\([0-9][0-9]*\\).*/\\2/p' | head -n 1"))
