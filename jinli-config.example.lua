@@ -1,6 +1,9 @@
--- Set to a number for a fixed scale, or use 'auto' to fit the visible
--- widgets to the detected screen height.
+-- Set to a number for a fixed scale, or use 'auto' to fit the primary
+-- display's detected screen height.
 local scaling = 'auto'
+-- In auto mode, use 'primary' or a KDE output name reported by
+-- `kscreen-doctor -o` (for example, 'eDP-1').
+local autoScalingOutput = 'primary'
 local configScaling = type(scaling) == 'number' and scaling or 1
 function scale(n)
   return math.floor(n * configScaling)
@@ -27,15 +30,71 @@ function getOsIcon()
   return icon_map[distro] or '\u{ebc6}'
 end
 
-local function detectScreenHeight()
-  local pipe = io.popen("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1")
-  local detected = pipe and tonumber(pipe:read('*l')) or nil
-  if pipe then pipe:close() end
-  return detected and detected > 0 and detected or 1000
+local function runCommand(command)
+  local pipe = io.popen(command)
+  if not pipe then return nil end
+  local output = pipe:read('*a')
+  pipe:close()
+  return output
 end
 
-local width = scale(250)
-local height = scaling == 'auto' and detectScreenHeight() or scale(1000)
+local function detectKscreenHeight()
+  -- On KDE Wayland, Xwayland tools describe the combined virtual desktop.
+  -- KScreen provides each output's logical geometry and fractional scale;
+  -- multiplying them gives the physical output height used by Conky.
+  local output = runCommand('kscreen-doctor -o 2>/dev/null')
+  if not output then return nil end
+
+  local selected, outputName, geometryHeight, scale
+  for line in (output .. '\n'):gmatch('(.-)\n') do
+    if line:match('^Output:') then
+      if selected and geometryHeight and scale then
+        return math.floor(geometryHeight * scale + 0.5), outputName
+      end
+      outputName = line:match('^Output:%s+%d+%s+(%S+)')
+      selected = autoScalingOutput == 'primary'
+        and line:match('%f[%a]primary%f[^%a]') ~= nil
+        or outputName == autoScalingOutput
+      geometryHeight, scale = nil, nil
+    elseif selected then
+      local height = line:match('^%s*Geometry:%s*%-?%d+,%-?%d+%s+%d+x(%d+)')
+      if height then geometryHeight = tonumber(height) end
+      local outputScale = line:match('^%s*Scale:%s*([%d%.]+)')
+      if outputScale then scale = tonumber(outputScale) end
+    end
+  end
+
+  if selected and geometryHeight and scale then
+    return math.floor(geometryHeight * scale + 0.5), outputName
+  end
+  return nil
+end
+
+local function detectScreenHeight()
+  local kscreenHeight = detectKscreenHeight()
+  if kscreenHeight and kscreenHeight > 0 then return kscreenHeight end
+
+  local xrandrHeight = runCommand("xrandr --current 2>/dev/null | sed -n 's/.* connected primary .* \\([0-9][0-9]*\\)x\\([0-9][0-9]*\\).*/\\2/p' | head -n 1")
+  local detected = xrandrHeight and tonumber(xrandrHeight:match('(%d+)')) or nil
+  if detected and detected > 0 then return detected end
+
+  local xdpHeight = runCommand("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1")
+  detected = xdpHeight and tonumber(xdpHeight:match('(%d+)')) or nil
+  return detected and detected > 0 and detected or nil
+end
+
+local autoScalingScreenHeight = detectScreenHeight()
+local baseLayoutHeight = 860
+local windowScaling = configScaling
+if scaling == 'auto' and autoScalingScreenHeight then
+  -- Keep widget heights unscaled here. jinli.lua applies this factor while it
+  -- draws, so pre-scaling them would make the layout gaps grow twice as fast.
+  windowScaling = math.max((autoScalingScreenHeight - 80) / baseLayoutHeight, 0.1)
+end
+
+local width = math.floor(250 * windowScaling)
+local height = scaling == 'auto' and (autoScalingScreenHeight or 1000) or scale(1000)
+print(string.format('Conky auto-scaling config: screenHeight=%s windowScaling=%.3f', tostring(autoScalingScreenHeight), windowScaling))
 local dpi = 96
 local default, primary, warn, crit = 0xffffff, 0x00bfa5, 0xfbc02d, 0xdd2c00
 
@@ -84,6 +143,7 @@ conky.text = [[]]
 
 conky.jinli = {
   scaling = scaling,
+  auto_scaling_screen_height = autoScalingScreenHeight,
   auto_scaling_bottom_margin = 80,
   icon_font = 'Symbols Nerd Font',
   pos = {x = 0, y = 0},
