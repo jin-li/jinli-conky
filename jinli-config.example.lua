@@ -45,29 +45,47 @@ local function detectKscreenHeight()
   local output = runCommand('kscreen-doctor -o 2>/dev/null')
   if not output then return nil end
 
-  local selected, outputName, geometryHeight, scale
+  local selected, explicitPrimary, outputName, geometryHeight, scale, priority, enabled
+  local bestHeight, bestOutput, bestPriority
+
+  local function considerOutput()
+    if not selected or not enabled or not geometryHeight or not scale then return nil end
+    local height = math.floor(geometryHeight * scale + 0.5)
+
+    if autoScalingOutput ~= 'primary' or explicitPrimary then
+      return height, outputName
+    end
+
+    local outputPriority = priority or 0
+    if bestPriority == nil or outputPriority > bestPriority then
+      bestHeight, bestOutput, bestPriority = height, outputName, outputPriority
+    end
+    return nil
+  end
+
   for line in (output .. '\n'):gmatch('(.-)\n') do
     if line:match('^Output:') then
-      if selected and geometryHeight and scale then
-        return math.floor(geometryHeight * scale + 0.5), outputName
-      end
+      local height, name = considerOutput()
+      if height then return height, name end
+
       outputName = line:match('^Output:%s+%d+%s+(%S+)')
-      selected = autoScalingOutput == 'primary'
-        and line:match('%f[%a]primary%f[^%a]') ~= nil
-        or outputName == autoScalingOutput
-      geometryHeight, scale = nil, nil
+      explicitPrimary = line:match('%f[%a]primary%f[^%a]') ~= nil
+      selected = autoScalingOutput == 'primary' or outputName == autoScalingOutput
+      geometryHeight, scale, priority, enabled = nil, nil, nil, false
     elseif selected then
       local height = line:match('^%s*Geometry:%s*%-?%d+,%-?%d+%s+%d+x(%d+)')
       if height then geometryHeight = tonumber(height) end
       local outputScale = line:match('^%s*Scale:%s*([%d%.]+)')
       if outputScale then scale = tonumber(outputScale) end
+      local outputPriority = line:match('^%s*priority%s+(%d+)')
+      if outputPriority then priority = tonumber(outputPriority) end
+      if line:match('^%s*enabled%s*$') then enabled = true end
     end
   end
 
-  if selected and geometryHeight and scale then
-    return math.floor(geometryHeight * scale + 0.5), outputName
-  end
-  return nil
+  local height, name = considerOutput()
+  if height then return height, name end
+  return bestHeight, bestOutput
 end
 
 local function detectScreenHeight()
