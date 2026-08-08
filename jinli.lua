@@ -343,10 +343,11 @@ function updateSystem(config)
   local y = pos.y + scale(2)
 
   if cache.systemInfo == nil then
+    local gpuInfo = trimLine(os.capture([[lspci 2>/dev/null | sed -nE '/(VGA compatible controller|3D controller|Display controller)/ { s/^[^:]*: //; p; q; }']]))
     cache.systemInfo = {
       os = trimLine(os.capture('lsb_release -irs 2>/dev/null')),
       cpu = trimLine(os.capture("LC_ALL=C cat /proc/cpuinfo | grep 'model name' | sed -e 's/model name.*: //' | uniq")),
-      gpu = trimLine(os.capture([[lspci 2>/dev/null | sed -nE '/(VGA compatible controller|3D controller|Display controller)/ { s/^[^:]*: //; p; q; }']])),
+      gpu = gpuInfo:match('%[([^%]]+)%]') or gpuInfo,
     }
   end
 
