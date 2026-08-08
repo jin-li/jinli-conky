@@ -111,7 +111,7 @@ conky.jinli = {
       -- minCoresPerRow = 2,
     },
     gpu = {
-      hide = false,
+      hide = 'auto', -- true, false, auto (hide when no supported GPU is detected)
       height = scale(175),
       gaugeLoc = 'left', -- left, right
       gpuBackend = 'auto', -- auto, nvidia, amd

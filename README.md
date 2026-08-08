@@ -66,7 +66,7 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 Each widget has its own configuration table in `conky.jinli.widgets`. You can show/hide widgets, change their position, and other specific settings. General settings for each widget include:
 
-- `hide`: Set to `true` to hide the widget, `false` to show it.
+- `hide`: Set to `true` to hide the widget, `false` to show it, or `auto` for the GPU widget to hide it when no supported GPU is detected.
 - `pos`: A table specifying the x and y position of the widget, e.g., `pos = {x = 0, y = scale(100)}`.
 - `gaugeLoc`: Set to `'left'`, `'right'`.
 
@@ -77,7 +77,9 @@ The GPU widget now supports both NVIDIA and AMD on Linux.
 - `gpuBackend`: `auto` (default), `nvidia`, or `amd`.
 - `amdCard`: `auto` (default) or a specific card such as `card0`, `card1`.
 
-In `auto` mode, it prefers `nvidia-smi` if available, otherwise it falls back to AMD sysfs (`/sys/class/drm/card*/device/...` and `hwmon`).
+In `auto` mode, it detects an NVIDIA GPU through `nvidia-smi -L`, otherwise it falls back to AMD sysfs (`/sys/class/drm/card*/device/...` and `hwmon`).
+
+The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = false` always override automatic visibility. The system widget shows a GPU row only when `lspci` detects a display controller.
 
 ## Acknowledgements
 

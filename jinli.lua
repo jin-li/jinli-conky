@@ -18,7 +18,7 @@ local cr, width, height, updates
 local effectiveScaling
 local isIconFontAvailable = font_exists(settings.icon_font or 'Symbols Nerd Font')
 local default_widget_order = {'clock', 'system', 'cpu', 'gpu', 'memory', 'network', 'disks'}
-local scaleWidgetHeight
+local scaleWidgetHeight, isWidgetHidden
 
 function getWidgetPos(config, fallback)
   if config and config._pos then
@@ -44,7 +44,7 @@ function getDynamicWidgetLayout()
 
   for _, widgetName in ipairs(widgetOrder) do
     local config = widgets[widgetName]
-    if config ~= nil and config.hide ~= true then
+    if config ~= nil and not isWidgetHidden(widgetName, config) then
       table.insert(layout, {
         widget = widgetName,
         config = config,
@@ -89,7 +89,7 @@ local function getAutoScaling()
 
   for _, widgetName in ipairs(widgetOrder) do
     local config = widgets[widgetName]
-    if config ~= nil and config.hide ~= true then
+    if config ~= nil and not isWidgetHidden(widgetName, config) then
       layoutHeight = layoutHeight + (config.height or 0)
     end
   end
@@ -154,9 +154,7 @@ function conky_main()
 end
 
 function updateWidget(widget, config)
-  if config.hide ~= nil and config.hide == true then
-      return
-  end
+  if isWidgetHidden(widget, config) then return end
   local start = mtime()
   if widget == 'clock'   then updateClock(config)   end
   if widget == 'system'  then updateSystem(config)  end
@@ -196,7 +194,7 @@ local function detectGpuBackend(config)
     return backend
   end
 
-  if commandExists('nvidia-smi') then
+  if commandExists('nvidia-smi') and trimLine(os.capture('nvidia-smi -L 2>/dev/null')) ~= '' then
     return 'nvidia'
   end
 
@@ -206,6 +204,21 @@ local function detectGpuBackend(config)
   end
 
   return 'none'
+end
+
+isWidgetHidden = function(widget, config)
+  if config.hide == true then
+    return true
+  end
+
+  if widget == 'gpu' and config.hide == 'auto' then
+    if cache.gpuBackend == nil then
+      cache.gpuBackend = detectGpuBackend(config)
+    end
+    return cache.gpuBackend == 'none'
+  end
+
+  return false
 end
 
 local function getAmdGpuPaths(config)
@@ -333,7 +346,7 @@ function updateSystem(config)
     cache.systemInfo = {
       os = trimLine(os.capture('lsb_release -irs 2>/dev/null')),
       cpu = trimLine(os.capture("LC_ALL=C cat /proc/cpuinfo | grep 'model name' | sed -e 's/model name.*: //' | uniq")),
-      gpu = trimLine(os.capture("lspci | grep ' VGA ' | cut -d '[' -f2 | cut -d ']' -f1")),
+      gpu = trimLine(os.capture([[lspci 2>/dev/null | sed -nE '/(VGA compatible controller|3D controller|Display controller)/ { s/^[^:]*: //; p; q; }']])),
     }
   end
 
@@ -419,19 +432,21 @@ function updateSystem(config)
 
   -- gpu
   local gpu = cache.systemInfo.gpu
-  write(cr, 'GPU', {
-    pos = {x = leftTextX, y = y},
-    font = {settings.fonts.default, scale(10)},
-    color = settings.colors.default,
-    align = {'left', 'top'},
-  })
-  write(cr, gpu, {
-    pos = {x = rightTextX, y = y},
-    font = {settings.fonts.default, scale(10)},
-    color = settings.colors.default,
-    align = {'right', 'top'},
-  })
-  y = y + scale(12)
+  if gpu ~= '' then
+    write(cr, 'GPU', {
+      pos = {x = leftTextX, y = y},
+      font = {settings.fonts.default, scale(10)},
+      color = settings.colors.default,
+      align = {'left', 'top'},
+    })
+    write(cr, gpu, {
+      pos = {x = rightTextX, y = y},
+      font = {settings.fonts.default, scale(10)},
+      color = settings.colors.default,
+      align = {'right', 'top'},
+    })
+    y = y + scale(12)
+  end
 
   -- processes
   local processes = conky_parse('${processes}')
