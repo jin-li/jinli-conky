@@ -58,19 +58,16 @@ function getDynamicWidgetLayout()
 end
 
 local function getScreenHeight()
-  -- Conky exposes the X desktop dimensions and this avoids starting a shell
-  -- process on every draw. The command fallbacks help with older Conky builds.
-  local detected = tonumber(conky_parse('${desktop_height}'))
+  -- The result is cached, so run display probes only once per Conky session.
+  -- xrandr works with X11/Xwayland; xdpyinfo is a portable fallback.
+  local xrandrHeight = trimLine(os.capture("xrandr --current 2>/dev/null | sed -n 's/.* connected primary .* \\([0-9][0-9]*\\)x\\([0-9][0-9]*\\).*/\\2/p' | head -n 1"))
+  local detected = tonumber(xrandrHeight)
   if detected and detected > 0 then
     return detected
   end
 
-  detected = tonumber(trimLine(os.capture("xrandr --current 2>/dev/null | sed -n 's/.* connected primary .* \\([0-9][0-9]*\\)x\\([0-9][0-9]*\\).*/\\2/p' | head -n 1")))
-  if detected and detected > 0 then
-    return detected
-  end
-
-  return tonumber(trimLine(os.capture("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1")))
+  local xdpHeight = trimLine(os.capture("xdpyinfo 2>/dev/null | sed -n 's/ dimensions: *[0-9][0-9]*x\\([0-9][0-9]*\\) pixels.*/\\1/p' | head -n 1"))
+  return tonumber(xdpHeight)
 end
 
 local function isAutomaticScaling()
