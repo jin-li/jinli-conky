@@ -49,7 +49,7 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 ### Global Configurations
 
-- In `conky.jinli` table, you can change the scaling factor and icon font. The default scaling factor is designed for 1920x1080 screen. For 3840x2160 screen, you can set `scaling = 2.0`.
+- In `conky.jinli`, set `scaling = 'auto'` to calculate the scale from the detected screen height. The calculation respects the visible widget order and heights, and reserves `auto_scaling_bottom_margin` pixels for a dock or taskbar (80 by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
 
 - In `conky.config` table, you can change the width and height.
 
