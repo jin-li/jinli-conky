@@ -56,12 +56,9 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 ### Global Configurations
 
-- At the top of `jinli-config.lua`, set `local scaling = 'auto'` to calculate the scale from a detected display height. On KDE Wayland, the theme uses `kscreen-doctor`'s per-output geometry and fractional scale before falling back to XRandR or `xdpyinfo`; install `kscreen-doctor` when using KDE Wayland. By default it selects the enabled output marked `primary`, or the enabled output with the highest KScreen priority. Set `autoScalingOutput` to a specific output name from `kscreen-doctor -o` (for example, `eDP-1`) when Conky belongs on another display. The calculation respects the visible widget order and heights. Set `auto_scaling_bottom_margin` in `conky.jinli` to reserve space for a dock or taskbar (80 pixels by default). Set `scaling` to a number to use a fixed scale instead, such as `scaling = 2.0` for a 3840x2160 screen.
-
-  The KDE Wayland path has been tested. The XRandR and `xdpyinfo` fallback paths
-  are intended for X11 and other desktops, but have not yet been tested across
-  all GUI environments. Please report display-detection results on other
-  compositors or desktops.
+- Set `local scaling = 'auto'` to fit the detected display, or use a number for
+  a fixed scale. In auto mode, set `autoScalingOutput` to an output name from
+  `kscreen-doctor -o` when Conky should not use the primary display.
 
 - In `conky.config` table, you can change the width and height.
 
@@ -85,6 +82,18 @@ The GPU widget now supports both NVIDIA and AMD on Linux.
 In `auto` mode, it detects an NVIDIA GPU through `nvidia-smi -L`, otherwise it falls back to AMD sysfs (`/sys/class/drm/card*/device/...` and `hwmon`).
 
 The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = false` always override automatic visibility. The system widget shows a GPU row only when `lspci` detects a display controller.
+
+## Known issues
+
+- Automatic scaling has been tested on KDE Wayland. Support for X11 and other
+  desktops uses XRandR and `xdpyinfo` fallbacks but has not yet been tested
+  across all GUI environments.
+- KDE's `kscreen-doctor` output format varies by version and may contain ANSI
+  color sequences. The parser strips those sequences and supports both
+  explicit primary markers and numbered KScreen priorities. Please report any
+  output format that is not detected correctly.
+- On multi-monitor systems, set `autoScalingOutput` explicitly if KDE's
+  preferred output is not the display where Conky should appear.
 
 ## Acknowledgements
 

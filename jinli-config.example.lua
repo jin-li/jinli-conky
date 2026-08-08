@@ -44,6 +44,9 @@ local function detectKscreenHeight()
   -- multiplying them gives the physical output height used by Conky.
   local output = runCommand('kscreen-doctor -o 2>/dev/null')
   if not output then return nil end
+  -- Some KScreen versions emit color codes even when stdout is a pipe and
+  -- NO_COLOR is set. Remove them before matching line-oriented fields.
+  output = output:gsub('\27%[[0-9;]*m', '')
 
   local selected, explicitPrimary, outputName, geometryHeight, scale, priority, enabled
   local bestHeight, bestOutput, bestPriority
@@ -56,8 +59,10 @@ local function detectKscreenHeight()
       return height, outputName
     end
 
-    local outputPriority = priority or 0
-    if bestPriority == nil or outputPriority > bestPriority then
+    -- KScreen uses the lowest positive number as the highest priority. Keep
+    -- outputs without a numeric priority as a last-resort candidate.
+    local outputPriority = priority and priority > 0 and priority or math.huge
+    if bestPriority == nil or outputPriority < bestPriority then
       bestHeight, bestOutput, bestPriority = height, outputName, outputPriority
     end
     return nil
