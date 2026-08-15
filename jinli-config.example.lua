@@ -5,6 +5,7 @@ local scaling = 'auto'
 -- `kscreen-doctor -o` (for example, 'eDP-1').
 local autoScalingOutput = 'primary'
 local configScaling = type(scaling) == 'number' and scaling or 1
+local waylandSession = (os.getenv('WAYLAND_DISPLAY') or '') ~= ''
 function scale(n)
   return math.floor(n * configScaling)
 end
@@ -93,7 +94,37 @@ local function detectKscreenHeight()
   return bestHeight, bestOutput
 end
 
+local function detectNiriOutputHeight()
+  local output = runCommand('niri msg outputs 2>/dev/null')
+  if not output then return nil end
+
+  local requested = autoScalingOutput ~= 'primary' and autoScalingOutput or nil
+  local firstHeight, selectedHeight
+  local currentName
+
+  for line in (output .. '\n'):gmatch('(.-)\n') do
+    local name = line:match('^Output%s+".-"%s+%(([^)]+)%)')
+    if name then currentName = name end
+
+    local height = line:match('^%s*Current mode:%s*%d+x(%d+)')
+    if height and currentName then
+      height = tonumber(height)
+      firstHeight = firstHeight or height
+      if requested and currentName == requested then
+        selectedHeight = height
+      end
+    end
+  end
+
+  return selectedHeight or firstHeight
+end
+
 local function detectScreenHeight()
+  if (os.getenv('NIRI_SOCKET') or '') ~= '' then
+    local niriHeight = detectNiriOutputHeight()
+    if niriHeight and niriHeight > 0 then return niriHeight end
+  end
+
   local kscreenHeight = detectKscreenHeight()
   if kscreenHeight and kscreenHeight > 0 then return kscreenHeight end
 
@@ -144,7 +175,11 @@ conky.config = {
   own_window_argb_value = 0,
   own_window_class = 'Conky',
   own_window = true,
-  own_window_type = 'normal', -- for kde use dock and add window rules
+  -- Use Conky's native layer-shell backend on Wayland. X11 window
+  -- initialization can crash when a compositor provides no DISPLAY.
+  out_to_x = not waylandSession,
+  out_to_wayland = waylandSession,
+  own_window_type = waylandSession and 'dock' or 'normal',
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 

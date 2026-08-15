@@ -58,7 +58,8 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 - Set `local scaling = 'auto'` to fit the detected display, or use a number for
   a fixed scale. In auto mode, set `autoScalingOutput` to an output name from
-  `kscreen-doctor -o` when Conky should not use the primary display.
+  `kscreen-doctor -o` or `niri msg outputs` when Conky should not use the
+  primary display.
 
 - In `conky.config` table, you can change the width and height.
 
@@ -87,7 +88,9 @@ The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = 
 
 - Automatic scaling has been tested on KDE Wayland. Support for X11 and other
   desktops uses XRandR and `xdpyinfo` fallbacks but has not yet been tested
-  across all GUI environments.
+  across all GUI environments. Niri uses its native Wayland layer-shell
+  backend and `niri msg outputs`; visual placement still needs testing on
+  different Niri layouts and monitor arrangements.
 - KDE's `kscreen-doctor` output format varies by version and may contain ANSI
   color sequences. The parser strips those sequences and supports both
   explicit primary markers and numbered KScreen priorities. Please report any
