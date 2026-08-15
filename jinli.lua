@@ -1,4 +1,12 @@
 package.cpath = package.cpath .. ";/usr/lib/conky/lib?.so"
+local scriptSource = debug.getinfo(1, 'S').source
+local scriptDir = scriptSource and scriptSource:match('^@(.*/)') or nil
+if scriptDir then
+  -- Resolve the runtime, helpers, and configuration from one installation.
+  -- Conky otherwise prepends ~/.config/conky, which can mix a test or updated
+  -- runtime with stale modules from another copy of the theme.
+  package.path = scriptDir .. '?.lua;' .. package.path
+end
 require 'lib'
 require 'cairo-tools'
 require 'imlib2'
@@ -540,7 +548,8 @@ end
 
 function updateCpu(config)
   local pos = getWidgetPos(config, {x = 0, y = 0})
-  local freq = conky_parse('${freq_g cpu0}')
+  -- $freq_g numbers CPUs from 1; "cpu0" is valid for $cpu but not $freq_g.
+  local freq = conky_parse('${freq_g 1}')
   local hwmon = config.hwmon or getCoreHwmon()
   local tempSensor = config.tempSensor or 1
   local temperature = conky_parse('${hwmon ' .. hwmon .. ' temp '  .. tempSensor .. '}')

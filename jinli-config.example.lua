@@ -41,8 +41,9 @@ end
 
 local function detectKscreenHeight()
   -- On KDE Wayland, Xwayland tools describe the combined virtual desktop.
-  -- KScreen provides each output's logical geometry and fractional scale;
-  -- multiplying them gives the physical output height used by Conky.
+  -- KScreen provides each output's logical geometry and fractional scale.
+  -- Native Wayland uses logical pixels because the compositor applies the
+  -- output scale; X11 needs the corresponding physical pixel height.
   local output = runCommand('kscreen-doctor -o 2>/dev/null')
   if not output then return nil end
   -- Some KScreen versions emit color codes even when stdout is a pipe and
@@ -54,7 +55,8 @@ local function detectKscreenHeight()
 
   local function considerOutput()
     if not selected or not enabled or not geometryHeight or not scale then return nil end
-    local height = math.floor(geometryHeight * scale + 0.5)
+    local height = waylandSession and geometryHeight
+      or math.floor(geometryHeight * scale + 0.5)
 
     if autoScalingOutput ~= 'primary' or explicitPrimary then
       return height, outputName
@@ -106,7 +108,9 @@ local function detectNiriOutputHeight()
     local name = line:match('^Output%s+".-"%s+%(([^)]+)%)')
     if name then currentName = name end
 
-    local height = line:match('^%s*Current mode:%s*%d+x(%d+)')
+    -- Native Wayland surfaces are sized in logical pixels. Using the physical
+    -- mode here would apply Niri's output scale a second time.
+    local height = line:match('^%s*Logical size:%s*%d+x(%d+)')
     if height and currentName then
       height = tonumber(height)
       firstHeight = firstHeight or height
@@ -171,15 +175,18 @@ conky.config = {
   temperature_unit = 'celsius',
 
   -- Window specifications
-  own_window_argb_visual = true,
-  own_window_argb_value = 0,
+  own_window_colour = '#00000000',
   own_window_class = 'Conky',
   own_window = true,
   -- Use Conky's native layer-shell backend on Wayland. X11 window
   -- initialization can crash when a compositor provides no DISPLAY.
   out_to_x = not waylandSession,
   out_to_wayland = waylandSession,
-  own_window_type = waylandSession and 'dock' or 'normal',
+  -- A Wayland dock reserves an exclusive zone and collapses top-right to a
+  -- top-only anchor, while "normal" becomes a floating XDG window. Override
+  -- maps to a non-reserving bottom-layer surface on Wayland and therefore
+  -- stays below application windows while honoring the top-right alignment.
+  own_window_type = waylandSession and 'override' or 'normal',
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 
