@@ -86,13 +86,15 @@ The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = 
 
 ## Known issues
 
-- Native Wayland rendering requires Conky 1.23 or newer because the Lua theme
-  uses Conky's backend-neutral Cairo surface API. Conky 1.24.2 or newer is
-  recommended for its additional Wayland and fractional-scaling fixes.
-- Automatic scaling has been tested on KDE Wayland and Niri. Native Wayland
-  uses logical output dimensions because the compositor applies its output
-  scale; X11 uses physical dimensions. Other desktops use XRandR and
-  `xdpyinfo` fallbacks that have not been tested across all GUI environments.
+- Native Niri rendering requires Conky 1.23 or newer because the Lua theme uses
+  Conky's backend-neutral Cairo surface API. Conky 1.24.2 or newer is
+  recommended for its additional Wayland and fractional-scaling fixes. KDE
+  Plasma Wayland retains the theme's established XWayland behavior.
+- Automatic scaling has been tested on KDE Plasma Wayland through XWayland and
+  on Niri through native Wayland. Niri uses logical output dimensions because
+  the compositor applies its output scale; X11/XWayland uses physical
+  dimensions. Other desktops use XRandR and `xdpyinfo` fallbacks that have not
+  been tested across all GUI environments.
 - On Niri, Conky uses a non-reserving bottom-layer surface aligned at the top
   right. It stays behind regular application windows and does not reduce the
   usable workspace.

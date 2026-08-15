@@ -5,7 +5,7 @@ local scaling = 'auto'
 -- `kscreen-doctor -o` (for example, 'eDP-1').
 local autoScalingOutput = 'primary'
 local configScaling = type(scaling) == 'number' and scaling or 1
-local waylandSession = (os.getenv('WAYLAND_DISPLAY') or '') ~= ''
+local niriSession = (os.getenv('NIRI_SOCKET') or '') ~= ''
 function scale(n)
   return math.floor(n * configScaling)
 end
@@ -55,7 +55,7 @@ local function detectKscreenHeight()
 
   local function considerOutput()
     if not selected or not enabled or not geometryHeight or not scale then return nil end
-    local height = waylandSession and geometryHeight
+    local height = niriSession and geometryHeight
       or math.floor(geometryHeight * scale + 0.5)
 
     if autoScalingOutput ~= 'primary' or explicitPrimary then
@@ -124,7 +124,7 @@ local function detectNiriOutputHeight()
 end
 
 local function detectScreenHeight()
-  if (os.getenv('NIRI_SOCKET') or '') ~= '' then
+  if niriSession then
     local niriHeight = detectNiriOutputHeight()
     if niriHeight and niriHeight > 0 then return niriHeight end
   end
@@ -178,15 +178,13 @@ conky.config = {
   own_window_colour = '#00000000',
   own_window_class = 'Conky',
   own_window = true,
-  -- Use Conky's native layer-shell backend on Wayland. X11 window
-  -- initialization can crash when a compositor provides no DISPLAY.
-  out_to_x = not waylandSession,
-  out_to_wayland = waylandSession,
+  -- Preserve the established X11/Xwayland window behavior by default.
+  out_to_x = true,
   -- A Wayland dock reserves an exclusive zone and collapses top-right to a
   -- top-only anchor, while "normal" becomes a floating XDG window. Override
   -- maps to a non-reserving bottom-layer surface on Wayland and therefore
   -- stays below application windows while honoring the top-right alignment.
-  own_window_type = waylandSession and 'override' or 'normal',
+  own_window_type = niriSession and 'override' or 'normal',
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 
@@ -203,6 +201,14 @@ conky.config = {
   lua_load = 'jinli.lua',
   lua_draw_hook_pre = 'conky_main',
 }
+
+-- Niri provides no X11 display and is the native Wayland path tested by this
+-- theme. Add the Wayland-only key conditionally so older X11-only Conky builds
+-- on KDE, Fedora, and other existing installations never have to parse it.
+if niriSession then
+  conky.config.out_to_x = false
+  conky.config.out_to_wayland = true
+end
 
 conky.text = [[]]
 
