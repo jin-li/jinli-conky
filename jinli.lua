@@ -119,13 +119,26 @@ end
 
 function conky_main()
   if conky_window==nil or conky_window.width == 0 then return end
-  local cs = cairo_xlib_surface_create(
-    conky_window.display,
-    conky_window.drawable,
-    conky_window.visual,
-    conky_window.width,
-    conky_window.height
-  )
+  local cs
+  local ownsSurface = false
+
+  -- Conky 1.23+ provides the active Cairo surface for either Wayland or X11.
+  -- Keep the Xlib fallback so the theme still works with older Conky releases
+  -- when they are running under X11.
+  if type(conky_surface) == 'function' then
+    cs = conky_surface()
+  elseif conky_window.display ~= nil then
+    cs = cairo_xlib_surface_create(
+      conky_window.display,
+      conky_window.drawable,
+      conky_window.visual,
+      conky_window.width,
+      conky_window.height
+    )
+    ownsSurface = true
+  end
+
+  if cs == nil then return end
 
   cr = cairo_create(cs)
   width = conky_window.width
@@ -148,10 +161,12 @@ function conky_main()
     cairo_destroy(cr)
     cr = nil
   end
-  if cs ~= nil then
+  -- conky_surface() remains owned by Conky. Only destroy the legacy Xlib
+  -- surface that this script allocated itself.
+  if ownsSurface and cs ~= nil then
     cairo_surface_destroy(cs)
-    cs = nil
   end
+  cs = nil
 
   if not ok then
     print('conky_main error: ' .. tostring(err))
