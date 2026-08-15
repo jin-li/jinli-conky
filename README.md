@@ -98,8 +98,11 @@ The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = 
   color sequences. The parser strips those sequences and supports both
   explicit primary markers and numbered KScreen priorities. Please report any
   output format that is not detected correctly.
-- On multi-monitor systems, set `autoScalingOutput` explicitly if KDE's
-  preferred output is not the display where Conky should appear.
+- `autoScalingOutput` selects the monitor dimensions used for scaling; it does
+  not control native Wayland surface placement. Conky 1.24 does not expose a
+  configuration option for selecting a layer-shell output, so the compositor
+  currently decides which monitor receives Conky on multi-monitor Wayland
+  sessions.
 
 ## Acknowledgements
 
