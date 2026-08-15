@@ -58,7 +58,8 @@ as NixOS where `lsb_release -is` may return a quoted name such as `"NixOS"`.
 
 - Set `local scaling = 'auto'` to fit the detected display, or use a number for
   a fixed scale. In auto mode, set `autoScalingOutput` to an output name from
-  `kscreen-doctor -o` when Conky should not use the primary display.
+  `kscreen-doctor -o` or `niri msg outputs` when Conky should not use the
+  primary display.
 
 - In `conky.config` table, you can change the width and height.
 
@@ -85,15 +86,27 @@ The default GPU widget uses `hide = 'auto'`. Explicit `hide = true` and `hide = 
 
 ## Known issues
 
-- Automatic scaling has been tested on KDE Wayland. Support for X11 and other
-  desktops uses XRandR and `xdpyinfo` fallbacks but has not yet been tested
-  across all GUI environments.
+- Native Niri rendering requires Conky 1.23 or newer because the Lua theme uses
+  Conky's backend-neutral Cairo surface API. Conky 1.24.2 or newer is
+  recommended for its additional Wayland and fractional-scaling fixes. KDE
+  Plasma Wayland retains the theme's established XWayland behavior.
+- Automatic scaling has been tested on KDE Plasma Wayland through XWayland and
+  on Niri through native Wayland. Niri uses logical output dimensions because
+  the compositor applies its output scale; X11/XWayland uses physical
+  dimensions. Other desktops use XRandR and `xdpyinfo` fallbacks that have not
+  been tested across all GUI environments.
+- On Niri, Conky uses a non-reserving bottom-layer surface aligned at the top
+  right. It stays behind regular application windows and does not reduce the
+  usable workspace.
 - KDE's `kscreen-doctor` output format varies by version and may contain ANSI
   color sequences. The parser strips those sequences and supports both
   explicit primary markers and numbered KScreen priorities. Please report any
   output format that is not detected correctly.
-- On multi-monitor systems, set `autoScalingOutput` explicitly if KDE's
-  preferred output is not the display where Conky should appear.
+- `autoScalingOutput` selects the monitor dimensions used for scaling; it does
+  not control native Wayland surface placement. Conky 1.24 does not expose a
+  configuration option for selecting a layer-shell output, so the compositor
+  currently decides which monitor receives Conky on multi-monitor Wayland
+  sessions.
 
 ## Acknowledgements
 

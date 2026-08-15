@@ -5,6 +5,7 @@ local scaling = 'auto'
 -- `kscreen-doctor -o` (for example, 'eDP-1').
 local autoScalingOutput = 'primary'
 local configScaling = type(scaling) == 'number' and scaling or 1
+local niriSession = (os.getenv('NIRI_SOCKET') or '') ~= ''
 function scale(n)
   return math.floor(n * configScaling)
 end
@@ -40,8 +41,9 @@ end
 
 local function detectKscreenHeight()
   -- On KDE Wayland, Xwayland tools describe the combined virtual desktop.
-  -- KScreen provides each output's logical geometry and fractional scale;
-  -- multiplying them gives the physical output height used by Conky.
+  -- KScreen provides each output's logical geometry and fractional scale.
+  -- Native Wayland uses logical pixels because the compositor applies the
+  -- output scale; X11 needs the corresponding physical pixel height.
   local output = runCommand('kscreen-doctor -o 2>/dev/null')
   if not output then return nil end
   -- Some KScreen versions emit color codes even when stdout is a pipe and
@@ -53,7 +55,8 @@ local function detectKscreenHeight()
 
   local function considerOutput()
     if not selected or not enabled or not geometryHeight or not scale then return nil end
-    local height = math.floor(geometryHeight * scale + 0.5)
+    local height = niriSession and geometryHeight
+      or math.floor(geometryHeight * scale + 0.5)
 
     if autoScalingOutput ~= 'primary' or explicitPrimary then
       return height, outputName
@@ -93,7 +96,39 @@ local function detectKscreenHeight()
   return bestHeight, bestOutput
 end
 
+local function detectNiriOutputHeight()
+  local output = runCommand('niri msg outputs 2>/dev/null')
+  if not output then return nil end
+
+  local requested = autoScalingOutput ~= 'primary' and autoScalingOutput or nil
+  local firstHeight, selectedHeight
+  local currentName
+
+  for line in (output .. '\n'):gmatch('(.-)\n') do
+    local name = line:match('^Output%s+".-"%s+%(([^)]+)%)')
+    if name then currentName = name end
+
+    -- Native Wayland surfaces are sized in logical pixels. Using the physical
+    -- mode here would apply Niri's output scale a second time.
+    local height = line:match('^%s*Logical size:%s*%d+x(%d+)')
+    if height and currentName then
+      height = tonumber(height)
+      firstHeight = firstHeight or height
+      if requested and currentName == requested then
+        selectedHeight = height
+      end
+    end
+  end
+
+  return selectedHeight or firstHeight
+end
+
 local function detectScreenHeight()
+  if niriSession then
+    local niriHeight = detectNiriOutputHeight()
+    if niriHeight and niriHeight > 0 then return niriHeight end
+  end
+
   local kscreenHeight = detectKscreenHeight()
   if kscreenHeight and kscreenHeight > 0 then return kscreenHeight end
 
@@ -140,11 +175,16 @@ conky.config = {
   temperature_unit = 'celsius',
 
   -- Window specifications
-  own_window_argb_visual = true,
-  own_window_argb_value = 0,
+  own_window_colour = '#00000000',
   own_window_class = 'Conky',
   own_window = true,
-  own_window_type = 'normal', -- for kde use dock and add window rules
+  -- Preserve the established X11/Xwayland window behavior by default.
+  out_to_x = true,
+  -- A Wayland dock reserves an exclusive zone and collapses top-right to a
+  -- top-only anchor, while "normal" becomes a floating XDG window. Override
+  -- maps to a non-reserving bottom-layer surface on Wayland and therefore
+  -- stays below application windows while honoring the top-right alignment.
+  own_window_type = niriSession and 'override' or 'normal',
   own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
   -- own_window_transparent = false, -- I don't know if this helps
 
@@ -161,6 +201,14 @@ conky.config = {
   lua_load = 'jinli.lua',
   lua_draw_hook_pre = 'conky_main',
 }
+
+-- Niri provides no X11 display and is the native Wayland path tested by this
+-- theme. Add the Wayland-only key conditionally so older X11-only Conky builds
+-- on KDE, Fedora, and other existing installations never have to parse it.
+if niriSession then
+  conky.config.out_to_x = false
+  conky.config.out_to_wayland = true
+end
 
 conky.text = [[]]
 
