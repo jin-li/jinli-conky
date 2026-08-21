@@ -130,12 +130,10 @@ function conky_main()
   local cs
   local ownsSurface = false
 
-  -- Conky 1.23+ provides the active Cairo surface for either Wayland or X11.
-  -- Keep the Xlib fallback so the theme still works with older Conky releases
-  -- when they are running under X11.
-  if type(conky_surface) == 'function' then
-    cs = conky_surface()
-  elseif conky_window.display ~= nil then
+  -- Use the established Xlib surface for X11 and Xwayland. Conky's native
+  -- surface is required only when no X11 display is available, as on native
+  -- Wayland.
+  if conky_window.display ~= nil then
     cs = cairo_xlib_surface_create(
       conky_window.display,
       conky_window.drawable,
@@ -144,6 +142,8 @@ function conky_main()
       conky_window.height
     )
     ownsSurface = true
+  elseif type(conky_surface) == 'function' then
+    cs = conky_surface()
   end
 
   if cs == nil then return end
